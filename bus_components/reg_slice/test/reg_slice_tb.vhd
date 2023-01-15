@@ -2,7 +2,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-library lib_bus_common;
+library lib_bus_components;
 library lib_common;
 use lib_common.random_2008.all;
 library lib_bus_testbench;
@@ -15,12 +15,12 @@ architecture tb of reg_slice_tb is
 
   type t_all_done is array (0 to 3) of boolean;
   type t_reg_slice is record
-    i_data  : std_logic_vector(7 downto 0);
-    i_valid : std_logic;
-    o_ready : std_logic;
-    o_data  : std_logic_vector(7 downto 0);
-    o_valid : std_logic;
-    i_ready : std_logic;
+    s_data  : std_logic_vector(7 downto 0);
+    s_valid : std_logic;
+    s_ready : std_logic;
+    m_data  : std_logic_vector(7 downto 0);
+    m_valid : std_logic;
+    m_ready : std_logic;
   end record;
   type t_reg_slices is array (0 to 3) of t_reg_slice;
   type t_slv_array is array (0 to 255) of std_logic_vector(7 downto 0);
@@ -56,8 +56,8 @@ begin
   p_write : process
     variable v_data : std_logic_vector(7 downto 0);
   begin
-    reg_slices(i).i_data  <= (others => '0');
-    reg_slices(i).i_valid <= '0';
+    reg_slices(i).s_data  <= (others => '0');
+    reg_slices(i).s_valid <= '0';
 
     wait until tb_rst = '0';
     wait until rising_edge(tb_clk);
@@ -66,9 +66,9 @@ begin
       v_data := test_data(j);
       pcdr_write(
         tb_clk,
-        reg_slices(i).i_data,
-        reg_slices(i).i_valid,
-        reg_slices(i).o_ready,
+        reg_slices(i).s_data,
+        reg_slices(i).s_valid,
+        reg_slices(i).s_ready,
         v_data,
         100 * c_clk_period,
         0.7);
@@ -80,7 +80,7 @@ begin
   p_read : process
     variable v_data : std_logic_vector(7 downto 0);
   begin
-    reg_slices(i).i_ready <= '0';
+    reg_slices(i).m_ready <= '0';
 
     wait until tb_rst = '0';
     wait until rising_edge(tb_clk);
@@ -88,9 +88,9 @@ begin
     for j in test_data'range loop
       pcdr_read(
         tb_clk,
-        reg_slices(i).o_data,
-        reg_slices(i).o_valid,
-        reg_slices(i).i_ready,
+        reg_slices(i).m_data,
+        reg_slices(i).m_valid,
+        reg_slices(i).m_ready,
         v_data,
         100 * c_clk_period,
         0.7);
@@ -105,68 +105,68 @@ begin
 
   end generate b_gen_ctrl;
 
-  i_dut_full_impl : entity lib_bus_common.reg_slice(rtl)
+  i_dut_full_impl : entity lib_bus_components.reg_slice(rtl)
   generic map (
     g_data_width  => 8,
     g_impl        => "full"
   )
   port map (
-    i_clk     => tb_clk,
-    i_rst     => tb_rst,
-    i_data    => reg_slices(0).i_data,
-    i_valid   => reg_slices(0).i_valid,
-    o_ready   => reg_slices(0).o_ready,
-    o_data    => reg_slices(0).o_data,
-    o_valid   => reg_slices(0).o_valid,
-    i_ready   => reg_slices(0).i_ready
+    clk     => tb_clk,
+    rst     => tb_rst,
+    s_data  => reg_slices(0).s_data,
+    s_valid => reg_slices(0).s_valid,
+    s_ready => reg_slices(0).s_ready,
+    m_data  => reg_slices(0).m_data,
+    m_valid => reg_slices(0).m_valid,
+    m_ready => reg_slices(0).m_ready
   );
 
-  i_dut_half_impl : entity lib_bus_common.reg_slice(rtl)
+  i_dut_half_impl : entity lib_bus_components.reg_slice(rtl)
   generic map (
     g_data_width  => 8,
     g_impl        => "half"
   )
   port map (
-    i_clk     => tb_clk,
-    i_rst     => tb_rst,
-    i_data    => reg_slices(1).i_data,
-    i_valid   => reg_slices(1).i_valid,
-    o_ready   => reg_slices(1).o_ready,
-    o_data    => reg_slices(1).o_data,
-    o_valid   => reg_slices(1).o_valid,
-    i_ready   => reg_slices(1).i_ready
+    clk     => tb_clk,
+    rst     => tb_rst,
+    s_data  => reg_slices(1).s_data,
+    s_valid => reg_slices(1).s_valid,
+    s_ready => reg_slices(1).s_ready,
+    m_data  => reg_slices(1).m_data,
+    m_valid => reg_slices(1).m_valid,
+    m_ready => reg_slices(1).m_ready
   );
 
-  i_dut_registered_input : entity lib_bus_common.reg_slice(rtl)
+  i_dut_registered_input : entity lib_bus_components.reg_slice(rtl)
   generic map (
     g_data_width  => 8,
     g_impl        => "reg_input"
   )
   port map (
-    i_clk     => tb_clk,
-    i_rst     => tb_rst,
-    i_data    => reg_slices(2).i_data,
-    i_valid   => reg_slices(2).i_valid,
-    o_ready   => reg_slices(2).o_ready,
-    o_data    => reg_slices(2).o_data,
-    o_valid   => reg_slices(2).o_valid,
-    i_ready   => reg_slices(2).i_ready
+    clk     => tb_clk,
+    rst     => tb_rst,
+    s_data  => reg_slices(2).s_data,
+    s_valid => reg_slices(2).s_valid,
+    s_ready => reg_slices(2).s_ready,
+    m_data  => reg_slices(2).m_data,
+    m_valid => reg_slices(2).m_valid,
+    m_ready => reg_slices(2).m_ready
   );
 
-  i_dut_passthrough : entity lib_bus_common.reg_slice(rtl)
+  i_dut_passthrough : entity lib_bus_components.reg_slice(rtl)
   generic map (
     g_data_width  => 8,
     g_impl        => "passthrough"
   )
   port map (
-    i_clk     => tb_clk,
-    i_rst     => tb_rst,
-    i_data    => reg_slices(3).i_data,
-    i_valid   => reg_slices(3).i_valid,
-    o_ready   => reg_slices(3).o_ready,
-    o_data    => reg_slices(3).o_data,
-    o_valid   => reg_slices(3).o_valid,
-    i_ready   => reg_slices(3).i_ready
+    clk     => tb_clk,
+    rst     => tb_rst,
+    s_data  => reg_slices(3).s_data,
+    s_valid => reg_slices(3).s_valid,
+    s_ready => reg_slices(3).s_ready,
+    m_data  => reg_slices(3).m_data,
+    m_valid => reg_slices(3).m_valid,
+    m_ready => reg_slices(3).m_ready
   );
 
 end architecture tb;

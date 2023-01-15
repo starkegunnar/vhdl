@@ -5,7 +5,7 @@ REPO_DIR = $(abspath $(COMPONENT_DIR)/../..)
 OUT_DIR_DEFAULT = $(COMPONENT_DIR)/out
 OUT_DIR ?= $(OUT_DIR_DEFAULT)
 
-LIBRARY_NAME = lib_bus_common
+LIBRARY_NAME = lib_bus_components
 
 COMPONENTS = \
 	$(REPO_DIR)/bus_components/testbench_packages
