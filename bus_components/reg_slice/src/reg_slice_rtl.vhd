@@ -1,5 +1,6 @@
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.std_logic_misc.all;
 use ieee.numeric_std.all;
 
 library lib_common;
@@ -43,8 +44,6 @@ architecture rtl of reg_slice is
   end function f_impl_type;
 
   constant c_impl : t_impl := f_impl_type;
-  constant c_fifo_depth   : natural := 3;
-  constant c_fifo_ptr_max : natural := c_fifo_depth - 1;
 
   attribute keep          : string;
 
@@ -133,22 +132,23 @@ begin
     signal r_data       : std_logic_vector(g_data_width - 1 downto 0);
     signal r_valid      : std_logic := '0';
     signal r_ready      : std_logic := '0';
-    signal r_ready_srl  : std_logic_vector(1 downto 0) := (others => '0');
-    signal fifo         : t_slv_array(0 to c_fifo_ptr_max)(g_data_width - 1 downto 0);
-    signal wptr         : unsigned(1 downto 0) := (others => '0');
-    signal rptr         : unsigned(1 downto 0) := (others => '0');
-    signal cnt          : unsigned(1 downto 0) := (others => '0');
+    signal r_ready_dly  : std_logic_vector(1 downto 0) := (others => '0');
+    signal fifo         : t_slv_array(2 downto 0)(g_data_width - 1 downto 0);
+    signal addr         : std_logic_vector(1 downto 0) := (others => '0');
     signal we, re       : std_logic := '0';
     signal f_valid      : std_logic := '0';
   begin
-
-    m_data  <= fifo(to_integer(rptr(1 downto 0))) when f_valid = '1' else r_data;
-    m_valid <= f_valid or (r_valid and r_ready_srl(r_ready_srl'high));
+    with addr select m_data <=
+      fifo(0) when "00",
+      fifo(1) when "01",
+      fifo(2) when "10",
+      r_data  when others;
+    m_valid <= f_valid or (r_valid and r_ready_dly(r_ready_dly'high));
 
     -- Read from fifo if a transfer happens
-    re <= f_valid and m_ready;
+    re <= nand_reduce(addr) and m_ready;
     -- Write to fifo if receiver is not ready or if we have data in fifo and a transfer would happen
-    we <= r_valid and r_ready_srl(r_ready_srl'high) and (not m_ready or (f_valid and m_ready));
+    we <= r_valid and r_ready_dly(r_ready_dly'high) and (not m_ready or (nand_reduce(addr) and m_ready));
 
     p_reg_input : process(clk)
     begin
@@ -157,52 +157,26 @@ begin
         r_valid <= s_valid;
         s_ready <= r_ready;
 
-        if re = '1' then
-          if rptr(1) = '1' then
-            -- wrap
-            rptr <= (others => '0');
-          else
-            rptr <= rptr + 1;
-          end if;
-        end if;
-
         if we = '1' then
-          fifo(to_integer(wptr)) <= r_data;
-          if wptr(1) = '1' then
-            -- wrap
-            wptr <= (others => '0');
-          else
-            wptr <= wptr + 1;
-          end if;
+          fifo <= fifo(fifo'high - 1 downto 0) & r_data;
         end if;
 
         if re = '1' and we = '0' then
-          f_valid <= std_logic(cnt(cnt'high));
-          r_ready <= '1';
-          cnt     <= cnt - 1;
+          f_valid <= or_reduce(addr);
+          addr    <= std_logic_vector(unsigned(addr) + "11");
         elsif re = '0' and we = '1' then
           f_valid <= '1';
-          r_ready <= '0';
-          cnt     <= cnt + 1;
-        elsif re = '1' and we = '1' then
-          r_ready <= '1';
-        else
-          if cnt = 0 then
-            r_ready <= '1';
-          else
-            r_ready <= '0';
-          end if;
+          addr    <= std_logic_vector(unsigned(addr) + "01");
         end if;
 
-        r_ready_srl <= r_ready_srl(r_ready_srl'low) & r_ready;
+        r_ready     <= re or (not we and and_reduce(addr));
+        r_ready_dly <= r_ready_dly(r_ready_dly'low) & r_ready;
 
         if rst = '1' then
           f_valid     <= '0';
           r_ready     <= '0';
-          r_ready_srl <= (others => '0');
-          wptr        <= (others => '0');
-          rptr        <= (others => '0');
-          cnt         <= (others => '0');
+          r_ready_dly <= (others => '0');
+          addr        <= (others => '1');
         end if;
       end if;
     end process;
