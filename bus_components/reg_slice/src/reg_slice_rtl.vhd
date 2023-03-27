@@ -132,23 +132,27 @@ begin
     signal r_data       : std_logic_vector(g_data_width - 1 downto 0);
     signal r_valid      : std_logic := '0';
     signal r_ready      : std_logic := '0';
-    signal r_ready_dly  : std_logic_vector(1 downto 0) := (others => '0');
+    signal r_ready_dly  : std_logic := '0';
+    signal r_dout_en    : std_logic := '0';
+    signal r_din_en     : std_logic := '0';
     signal fifo         : t_slv_array(2 downto 0)(g_data_width - 1 downto 0);
-    signal addr         : std_logic_vector(1 downto 0) := (others => '0');
+    signal raddr        : unsigned(1 downto 0) := (others => '0');
+    signal waddr        : unsigned(1 downto 0) := (others => '0');
+    signal count        : unsigned(1 downto 0) := (others => '0');
     signal we, re       : std_logic := '0';
-    signal f_valid      : std_logic := '0';
+    signal empty        : std_logic := '1';
+    attribute keep of r_dout_en : signal is "true";
+    attribute keep of r_din_en  : signal is "true";
   begin
-    with addr select m_data <=
-      fifo(0) when "00",
-      fifo(1) when "01",
-      fifo(2) when "10",
+    with empty select m_data <=
+      fifo(to_integer(raddr)) when '0',
       r_data  when others;
-    m_valid <= f_valid or (r_valid and r_ready_dly(r_ready_dly'high));
+    m_valid <= not empty or (r_valid and r_dout_en);
 
     -- Read from fifo if a transfer happens
-    re <= nand_reduce(addr) and m_ready;
+    re <= not empty and m_ready;
     -- Write to fifo if receiver is not ready or if we have data in fifo and a transfer would happen
-    we <= r_valid and r_ready_dly(r_ready_dly'high) and (not m_ready or (nand_reduce(addr) and m_ready));
+    we <= r_valid and r_din_en and (not m_ready or re);
 
     p_reg_input : process(clk)
     begin
@@ -157,26 +161,51 @@ begin
         r_valid <= s_valid;
         s_ready <= r_ready;
 
+        if re = '1' then
+          case raddr is
+          when "00"   => raddr <= "01";
+          when "01"   => raddr <= "10";
+          when others => raddr <= "00";
+          end case;
+        end if;
+
         if we = '1' then
-          fifo <= fifo(fifo'high - 1 downto 0) & r_data;
+          case waddr is
+          when "00"   => waddr <= "01";
+          when "01"   => waddr <= "10";
+          when others => waddr <= "00";
+          end case;
+        end if;
+
+        if r_din_en = '1' then
+          fifo(to_integer(unsigned(waddr))) <= r_data;
         end if;
 
         if re = '1' and we = '0' then
-          f_valid <= or_reduce(addr);
-          addr    <= std_logic_vector(unsigned(addr) + "11");
+          count <= count + "11";
         elsif re = '0' and we = '1' then
-          f_valid <= '1';
-          addr    <= std_logic_vector(unsigned(addr) + "01");
+          count <= count + "01";
         end if;
 
-        r_ready     <= re or (not we and and_reduce(addr));
-        r_ready_dly <= r_ready_dly(r_ready_dly'low) & r_ready;
+        if re = '1' and we = '0' and count = "01" then
+          empty <= '1';
+        elsif re = '0' and we = '1' then
+          empty <= '0';
+        end if;
+
+        r_ready     <= re or (not we and empty);
+        r_ready_dly <= r_ready;
+        r_dout_en   <= r_ready_dly;
+        r_din_en    <= r_ready_dly;
 
         if rst = '1' then
-          f_valid     <= '0';
+          empty       <= '1';
           r_ready     <= '0';
-          r_ready_dly <= (others => '0');
-          addr        <= (others => '1');
+          r_ready_dly <= '0';
+          r_en        <= '0';
+          raddr       <= (others => '0');
+          waddr       <= (others => '0');
+          count       <= (others => '0');
         end if;
       end if;
     end process;
