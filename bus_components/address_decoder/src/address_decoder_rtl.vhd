@@ -50,15 +50,14 @@ begin
 
   b_reg_output : if g_reg_output generate
     signal m_valid_int : std_logic;
-    signal s_ready_int : std_logic;
   begin
-    s_ready_int <= m_valid_int and m_ready;
-    m_valid     <= m_valid_int;
+    s_ready <= not m_valid_int or m_ready;
+    m_valid <= m_valid_int;
 
     p_reg_output : process(clk)
     begin
       if rising_edge(clk) then
-        if s_ready_int = '1' then
+        if m_valid_int = '0' or m_ready = '1' then
           m_valid_int <= s_valid;
         end if;
 

@@ -53,12 +53,14 @@ begin
     signal r_data       : std_logic_vector(g_data_width - 1 downto 0);
     signal r_valid      : std_logic;
     signal m_valid_int  : std_logic;
+    attribute keep of r_valid     : signal is "true";
     attribute keep of m_valid_int : signal is "true";
   begin
+    m_data <= fifo(0);
+
     p_full : process(clk)
     begin
       if rising_edge(clk) then
-
         if s_valid = '1' and r_valid = '0' and m_valid_int = '1' and m_ready = '0' then
           r_valid     <= '1';
           s_ready     <= '0';
@@ -129,83 +131,53 @@ begin
     end process;
 
   elsif c_impl = impl_reg_input generate
-    signal r_data       : std_logic_vector(g_data_width - 1 downto 0);
-    signal r_valid      : std_logic := '0';
-    signal r_ready      : std_logic := '0';
-    signal r_ready_dly  : std_logic := '0';
-    signal r_dout_en    : std_logic := '0';
-    signal r_din_en     : std_logic := '0';
-    signal fifo         : t_slv_array(2 downto 0)(g_data_width - 1 downto 0);
-    signal raddr        : unsigned(1 downto 0) := (others => '0');
-    signal waddr        : unsigned(1 downto 0) := (others => '0');
-    signal count        : unsigned(1 downto 0) := (others => '0');
+    signal s_data_r     : std_logic_vector(g_data_width - 1 downto 0);
+    signal s_valid_r    : std_logic := '0';
+    signal s_ready_r    : std_logic := '0';
+    signal m_ready_r2   : std_logic_vector(1 downto 0) := (others => '0');
     signal we, re       : std_logic := '0';
-    signal empty        : std_logic := '1';
-    attribute keep of r_dout_en : signal is "true";
-    attribute keep of r_din_en  : signal is "true";
+    signal fifo         : t_slv_array(3 downto 0)(g_data_width - 1 downto 0);
+    signal fifo_count   : std_logic_vector(2 downto 0) := "011";
+    signal fifo_valid   : std_logic;
+    signal fifo_addr    : std_logic_vector(1 downto 0);
+    signal fifo_data    : std_logic_vector(g_data_width - 1 downto 0);
   begin
-    with empty select m_data <=
-      fifo(to_integer(raddr)) when '0',
-      r_data  when others;
-    m_valid <= not empty or (r_valid and r_dout_en);
-
     -- Read from fifo if a transfer happens
-    re <= not empty and m_ready;
+    re <= fifo_valid and m_ready;
     -- Write to fifo if receiver is not ready or if we have data in fifo and a transfer would happen
-    we <= r_valid and r_din_en and (not m_ready or re);
+    we <= s_valid_r and s_ready_r and (not m_ready or fifo_valid);
+
+    fifo_valid  <= fifo_count(2);
+    fifo_addr   <= fifo_count(1 downto 0);
+    fifo_data   <= fifo(to_integer(unsigned(fifo_addr)));
+
+    m_valid <= fifo_valid or (s_valid_r and s_ready_r);
+    m_data  <= fifo_data when fifo_valid = '1' else s_data_r;
+    s_ready <= m_ready_r2(1);
 
     p_reg_input : process(clk)
     begin
       if rising_edge(clk) then
-        r_data  <= s_data;
-        r_valid <= s_valid;
-        s_ready <= r_ready;
-
-        if re = '1' then
-          case raddr is
-          when "00"   => raddr <= "01";
-          when "01"   => raddr <= "10";
-          when others => raddr <= "00";
-          end case;
-        end if;
+        s_data_r    <= s_data;
+        s_valid_r   <= s_valid;
+        m_ready_r2  <= m_ready_r2(0) & m_ready;
+        s_ready_r   <= m_ready_r2(1);
 
         if we = '1' then
-          case waddr is
-          when "00"   => waddr <= "01";
-          when "01"   => waddr <= "10";
-          when others => waddr <= "00";
-          end case;
-        end if;
-
-        if r_din_en = '1' then
-          fifo(to_integer(unsigned(waddr))) <= r_data;
+          fifo <= fifo(fifo'high - 1 downto 0) & s_data_r;
         end if;
 
         if re = '1' and we = '0' then
-          count <= count + "11";
+          fifo_count <= std_logic_vector(unsigned(fifo_count) - 1);
         elsif re = '0' and we = '1' then
-          count <= count + "01";
+          fifo_count <= std_logic_vector(unsigned(fifo_count) + 1);
         end if;
-
-        if re = '1' and we = '0' and count = "01" then
-          empty <= '1';
-        elsif re = '0' and we = '1' then
-          empty <= '0';
-        end if;
-
-        r_ready     <= re or (not we and empty);
-        r_ready_dly <= r_ready;
-        r_dout_en   <= r_ready_dly;
-        r_din_en    <= r_ready_dly;
 
         if rst = '1' then
-          empty       <= '1';
-          r_ready     <= '0';
-          r_ready_dly <= '0';
-          r_en        <= '0';
-          raddr       <= (others => '0');
-          waddr       <= (others => '0');
-          count       <= (others => '0');
+          s_ready_r   <= '0';
+          s_valid_r   <= '0';
+          m_ready_r2  <= (others => '0');
+          fifo_count  <= "011";
         end if;
       end if;
     end process;
