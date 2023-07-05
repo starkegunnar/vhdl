@@ -80,6 +80,41 @@ package common_pkg is
   --! @return     Binary logarithm or 1 if result is less than 1
   --!
   function fn_log2nz(n : integer) return integer;
+  --!
+  --! @brief      Get ceil of integer division
+  --!
+  --! @param      n     Dividend
+  --! @param      m     Divisor
+  --!
+  --! @return     Division quotient rounded up
+  --!
+  function fn_ceil_div(n, m : integer) return integer;
+  --!
+  --! @brief      Reverse order of elements
+  --!
+  --! @param      reverse Do reverse
+  --! @param      v       Input vector
+  --! @param      size    Reverse block size
+  --!
+  --! @return     Division quotient rounded up
+  --!
+  function fn_reverse(reverse boolean; v : std_logic_vector; size : positive) return std_logic_vector;
+  --!
+  --! @brief      Convert binary to gray code
+  --!
+  --! @param      bin     Binary input
+  --!
+  --! @return     Gray code representation of binary input
+  --!
+  function fn_bin2gray(bin : std_logic_vector) return std_logic_vector;
+  --!
+  --! @brief      Convert gray code to binary
+  --!
+  --! @param      bin     Gray code input
+  --!
+  --! @return     Binary representation of gray input
+  --!
+  function fn_gray2bin(gray : std_logic_vector) return std_logic_vector;
 
 end package common_pkg;
 
@@ -136,5 +171,43 @@ package body common_pkg is
   begin
     return fn_max(1, fn_log2(n));
   end function fn_log2nz;
+
+  function fn_ceil_div(n, m : integer) return integer is
+  begin
+    return integer(ceil(real(n)/real(m)));
+  end function fn_ceil_div;
+
+  function fn_reverse(reverse boolean; v : std_logic_vector; size : natural) return std_logic_vector is
+    constant c_l : natural := v'length;
+    constant c_n : natural := c_l/size;
+    variable v_v : std_logic_vector(v'length-1 downto 0);
+    variable v_r : std_logic_vector(v'length-1 downto 0);
+  begin
+    assert c_l mod size = 0 and (c_l = size or (c_l/size mod 2 = 0)) report "fn_reverse: invalid input";
+    v_v := v;
+    if reverse then
+      for i in 0 to c_n-1 loop
+        v_r((i+1)*size-1 downto i*size) := v_v(c_l-i*size-1 downto c_l-(i+1)*size);
+      end loop;
+    else
+      v_r := v_v;
+    end if;
+    return v_r;
+  end function fn_reverse;
+
+  function fn_bin2gray(bin : std_logic_vector) return std_logic_vector is
+  begin
+    return bin xor ('0' & bin(bin'high downto bin'low+1));
+  end function fn_bin2gray;
+
+  function fn_gray2bin(gray : std_logic_vector) return std_logic_vector is
+    variable v_bin  : std_logic_vector(gray'high+1 downto gray'low);
+  begin
+    v_bin(v_bin'high) := '0';
+    for i in gray'high downto gray'low loop
+      v_bin(i) := v_bin(i + 1) xor gray(i);
+    end loop;
+    return v_bin(gray'range);
+  end function fn_gray2bin;
 
 end package body common_pkg;

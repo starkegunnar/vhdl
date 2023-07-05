@@ -56,7 +56,6 @@ begin
     attribute keep of r_valid     : signal is "true";
     attribute keep of m_valid_int : signal is "true";
   begin
-    m_data <= fifo(0);
 
     p_full : process(clk)
     begin
@@ -139,28 +138,32 @@ begin
     signal fifo         : t_slv_array(3 downto 0)(g_data_width - 1 downto 0);
     signal fifo_count   : std_logic_vector(2 downto 0) := "011";
     signal fifo_valid   : std_logic;
+    signal fifo_empty   : std_logic;
     signal fifo_addr    : std_logic_vector(1 downto 0);
     signal fifo_data    : std_logic_vector(g_data_width - 1 downto 0);
+    attribute keep of m_ready_r2 : signal is "true";
   begin
-    -- Read from fifo if a transfer happens
-    re <= fifo_valid and m_ready;
-    -- Write to fifo if receiver is not ready or if we have data in fifo and a transfer would happen
-    we <= s_valid_r and s_ready_r and (not m_ready or fifo_valid);
 
     fifo_valid  <= fifo_count(2);
     fifo_addr   <= fifo_count(1 downto 0);
+    fifo_empty  <= and_reduce(fifo_addr);
     fifo_data   <= fifo(to_integer(unsigned(fifo_addr)));
 
     m_valid <= fifo_valid or (s_valid_r and s_ready_r);
-    m_data  <= fifo_data when fifo_valid = '1' else s_data_r;
-    s_ready <= m_ready_r2(1);
+    m_data  <= s_data_r when fifo_empty = '1' else fifo_data;
+
+    -- Read from fifo if a transfer happens
+    re <= not fifo_empty and m_ready;
+    -- Write to fifo if receiver is not ready or if we have data in fifo and a transfer would happen
+    we <= s_valid_r and s_ready_r and (not m_ready or not fifo_empty);
 
     p_reg_input : process(clk)
     begin
       if rising_edge(clk) then
         s_data_r    <= s_data;
         s_valid_r   <= s_valid;
-        m_ready_r2  <= m_ready_r2(0) & m_ready;
+        m_ready_r2  <= m_ready_r2(0) & (re or (not we and fifo_empty));
+        s_ready     <= m_ready_r2(0);
         s_ready_r   <= m_ready_r2(1);
 
         if we = '1' then
@@ -176,6 +179,7 @@ begin
         if rst = '1' then
           s_ready_r   <= '0';
           s_valid_r   <= '0';
+          s_ready     <= '0';
           m_ready_r2  <= (others => '0');
           fifo_count  <= "011";
         end if;
