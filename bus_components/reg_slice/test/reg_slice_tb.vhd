@@ -71,7 +71,33 @@ begin
         reg_slices(i).s_ready,
         v_data,
         100 * c_clk_period,
+        1.0);
+    end loop;
+    wait until rising_edge(tb_clk);
+
+    for j in test_data'range loop
+      v_data := test_data(j);
+      pcdr_write(
+        tb_clk,
+        reg_slices(i).s_data,
+        reg_slices(i).s_valid,
+        reg_slices(i).s_ready,
+        v_data,
+        100 * c_clk_period,
         0.7);
+    end loop;
+    wait until rising_edge(tb_clk);
+
+    for j in test_data'range loop
+      v_data := test_data(j);
+      pcdr_write(
+        tb_clk,
+        reg_slices(i).s_data,
+        reg_slices(i).s_valid,
+        reg_slices(i).s_ready,
+        v_data,
+        100 * c_clk_period,
+        0.9);
     end loop;
 
     wait;
@@ -83,6 +109,32 @@ begin
     reg_slices(i).m_ready <= '0';
 
     wait until tb_rst = '0';
+    wait until rising_edge(tb_clk);
+
+    for j in test_data'range loop
+      pcdr_read(
+        tb_clk,
+        reg_slices(i).m_data,
+        reg_slices(i).m_valid,
+        reg_slices(i).m_ready,
+        v_data,
+        100 * c_clk_period,
+        1.0);
+      assert v_data = test_data(j) report "Read data mismatch, expected " & to_hstring(test_data(j)) & " got " & to_hstring(v_data) severity warning;
+    end loop;
+    wait until rising_edge(tb_clk);
+
+    for j in test_data'range loop
+      pcdr_read(
+        tb_clk,
+        reg_slices(i).m_data,
+        reg_slices(i).m_valid,
+        reg_slices(i).m_ready,
+        v_data,
+        100 * c_clk_period,
+        0.9);
+      assert v_data = test_data(j) report "Read data mismatch, expected " & to_hstring(test_data(j)) & " got " & to_hstring(v_data) severity warning;
+    end loop;
     wait until rising_edge(tb_clk);
 
     for j in test_data'range loop

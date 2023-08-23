@@ -53,9 +53,12 @@ begin
     signal r_data       : std_logic_vector(g_data_width - 1 downto 0);
     signal r_valid      : std_logic;
     signal m_valid_int  : std_logic;
+    signal m_valid_comb : std_logic;
     attribute keep of r_valid     : signal is "true";
     attribute keep of m_valid_int : signal is "true";
   begin
+
+    m_valid_comb <= r_valid or s_valid;
 
     p_full : process(clk)
     begin
@@ -70,13 +73,13 @@ begin
           s_ready     <= '1';
         end if;
 
-        if s_valid = '1' and r_valid = '0' then
+        if r_valid = '0' then
           r_data <= s_data;
         end if;
 
         if m_valid_int = '0' or m_ready = '1' then
-          m_valid_int <= r_valid or s_valid;
-          m_valid     <= r_valid or s_valid;
+          m_valid_int <= m_valid_comb;
+          m_valid     <= m_valid_comb;
         end if;
 
         if m_valid_int = '0' or m_ready = '1' then
@@ -133,38 +136,38 @@ begin
     signal s_data_r     : std_logic_vector(g_data_width - 1 downto 0);
     signal s_valid_r    : std_logic := '0';
     signal s_ready_r    : std_logic := '0';
-    signal m_ready_r2   : std_logic_vector(1 downto 0) := (others => '0');
+    signal m_ready_srl  : std_logic_vector(2 downto 0) := (others => '0');
     signal we, re       : std_logic := '0';
     signal fifo         : t_slv_array(3 downto 0)(g_data_width - 1 downto 0);
     signal fifo_count   : std_logic_vector(2 downto 0) := "011";
     signal fifo_valid   : std_logic;
-    signal fifo_empty   : std_logic;
     signal fifo_addr    : std_logic_vector(1 downto 0);
     signal fifo_data    : std_logic_vector(g_data_width - 1 downto 0);
-    attribute keep of m_ready_r2 : signal is "true";
+    signal reg_valid    : std_logic;
+    signal reg_ready    : std_logic;
   begin
 
     fifo_valid  <= fifo_count(2);
     fifo_addr   <= fifo_count(1 downto 0);
-    fifo_empty  <= and_reduce(fifo_addr);
     fifo_data   <= fifo(to_integer(unsigned(fifo_addr)));
 
-    m_valid <= fifo_valid or (s_valid_r and s_ready_r);
-    m_data  <= s_data_r when fifo_empty = '1' else fifo_data;
-
     -- Read from fifo if a transfer happens
-    re <= not fifo_empty and m_ready;
+    re <= fifo_valid and reg_ready;
     -- Write to fifo if receiver is not ready or if we have data in fifo and a transfer would happen
-    we <= s_valid_r and s_ready_r and (not m_ready or not fifo_empty);
+    we <= s_valid_r and s_ready_r and (not reg_ready or fifo_valid);
+
+    s_ready   <= m_ready_srl(1);
+    s_ready_r <= m_ready_srl(2);
+
+    m_valid   <= reg_valid;
+    reg_ready <= m_ready or not reg_valid;
 
     p_reg_input : process(clk)
     begin
       if rising_edge(clk) then
         s_data_r    <= s_data;
         s_valid_r   <= s_valid;
-        m_ready_r2  <= m_ready_r2(0) & (re or (not we and fifo_empty));
-        s_ready     <= m_ready_r2(0);
-        s_ready_r   <= m_ready_r2(1);
+        m_ready_srl <= m_ready_srl(1 downto 0) & (re or (not we and not fifo_valid));
 
         if we = '1' then
           fifo <= fifo(fifo'high - 1 downto 0) & s_data_r;
@@ -176,12 +179,20 @@ begin
           fifo_count <= std_logic_vector(unsigned(fifo_count) + 1);
         end if;
 
+        -- Register output
+        if reg_ready = '1' then
+          if fifo_valid = '1' then
+            m_data <= fifo_data;
+          else
+            m_data <= s_data_r;
+          end if;
+          reg_valid <= fifo_valid or (s_valid_r and s_ready_r);
+        end if;
+
         if rst = '1' then
-          s_ready_r   <= '0';
-          s_valid_r   <= '0';
-          s_ready     <= '0';
-          m_ready_r2  <= (others => '0');
+          m_ready_srl <= (others => '0');
           fifo_count  <= "011";
+          reg_valid   <= '0';
         end if;
       end if;
     end process;

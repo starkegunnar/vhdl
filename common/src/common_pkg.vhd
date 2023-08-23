@@ -30,6 +30,14 @@ package common_pkg is
   --!
   type t_bool_array is array(natural range <>) of boolean;
 
+  --! FPGA optimization type
+  --!
+  type t_optimization is (
+    opt_none,
+    opt_xilinx_7series,
+    opt_xilinx_ultrascale
+  );
+
   --!
   --! @brief      Get minumum of two values
   --!
@@ -98,7 +106,7 @@ package common_pkg is
   --!
   --! @return     Division quotient rounded up
   --!
-  function fn_reverse(reverse boolean; v : std_logic_vector; size : positive) return std_logic_vector;
+  function fn_reverse(reverse : boolean; v : std_logic_vector; size : positive) return std_logic_vector;
   --!
   --! @brief      Convert binary to gray code
   --!
@@ -177,7 +185,7 @@ package body common_pkg is
     return integer(ceil(real(n)/real(m)));
   end function fn_ceil_div;
 
-  function fn_reverse(reverse boolean; v : std_logic_vector; size : natural) return std_logic_vector is
+  function fn_reverse(reverse : boolean; v : std_logic_vector; size : natural) return std_logic_vector is
     constant c_l : natural := v'length;
     constant c_n : natural := c_l/size;
     variable v_v : std_logic_vector(v'length-1 downto 0);
