@@ -10,8 +10,8 @@ entity dpram_asym is
   generic (
     g_addr_width_a  : natural := 6;
     g_data_width_a  : natural := 36;
-    g_addr_width_b  : natural := 7;
-    g_data_width_b  : natural := 18;
+    g_addr_width_b  : natural := g_addr_width_a;
+    g_data_width_b  : natural := g_data_width_a;
     g_sync_read     : boolean := true;
     g_opt_reg_out   : boolean := true;
     g_rst_polarity  : std_logic := '1'

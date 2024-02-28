@@ -102,9 +102,9 @@ begin
     -- Config
     baud_div      => config(15 downto 0),--: in  std_logic_vector(15 downto 0);
     -- Status
-    err_div_zero  => open,--: out std_logic := '0';
+    err_baud_div  => open,--: out std_logic := '0';
     -- Baudrate
-    baud16_en     => baud16_en--: out std_logic := '0';
+    sample_x16_en => baud16_en--: out std_logic := '0';
   );
 
 end architecture rtl;

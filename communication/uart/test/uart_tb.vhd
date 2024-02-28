@@ -56,6 +56,8 @@ architecture tb of uart_tb is
     tx <= '1';
   end procedure;
 
+  signal tb_clk_en  : std_logic := '1';
+
   -- Clock and reset
   signal clk         : std_logic := '1';
   signal rst         : std_logic := '1';
@@ -86,9 +88,8 @@ architecture tb of uart_tb is
 
 begin
 
-  clk <= not clk after c_clk_period / 2;
+  clk <= not clk and tb_clk_en after c_clk_period / 2;
   rst <= '0' after c_rst_period;
-  en  <= '1';-- after 2 * c_rst_period;
 
   config <= '0' & "00" & "00" & std_logic_vector(to_unsigned(125000000 / 921600, 16));
 
@@ -115,44 +116,57 @@ begin
   p_test : process
   begin
 
-  wait until rst = '0';
+    wait until rst = '0';
 
-  wait for 1 ms;
+    wait until rising_edge(clk);
+    wait until rising_edge(clk);
+    wait until rising_edge(clk);
+    wait until rising_edge(clk);
 
-  pcdr_uart_transmit(
-    data    => x"55",
-    parity  => parity_none,
-    stop2   => false,
-    tx      => uart_rxd
-  );
-  pcdr_uart_transmit(
-    data    => x"be",
-    parity  => parity_none,
-    stop2   => false,
-    tx      => uart_rxd
-  );
-  pcdr_uart_transmit(
-    data    => x"ef",
-    parity  => parity_none,
-    stop2   => false,
-    tx      => uart_rxd
-  );
-  pcdr_uart_transmit(
-    data    => x"02",
-    parity  => parity_none,
-    stop2   => false,
-    tx      => uart_rxd
-  );
+    en <= '1';
 
-  wait for 100 ns;
+    wait until rising_edge(clk);
 
-  uart_rxd <= '0';
+    wait for 1 ms;
 
-  wait for 15 us;
+    pcdr_uart_transmit(
+      data    => x"55",
+      parity  => parity_none,
+      stop2   => false,
+      tx      => uart_rxd
+    );
+    pcdr_uart_transmit(
+      data    => x"be",
+      parity  => parity_none,
+      stop2   => false,
+      tx      => uart_rxd
+    );
+    pcdr_uart_transmit(
+      data    => x"ef",
+      parity  => parity_none,
+      stop2   => false,
+      tx      => uart_rxd
+    );
+    pcdr_uart_transmit(
+      data    => x"02",
+      parity  => parity_none,
+      stop2   => false,
+      tx      => uart_rxd
+    );
 
-  uart_rxd <= '1';
+    wait for 100 ns;
 
-  wait;
+    uart_rxd <= '0';
+
+    wait for 15 us;
+
+    uart_rxd <= '1';
+
+    wait until rising_edge(clk);
+
+    tb_clk_en <= '0';
+
+    wait;
   end process;
 
 end architecture tb;
