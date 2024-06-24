@@ -24,14 +24,6 @@ package common_pkg is
   --!
   type t_unsigned_array is array(natural range <>) of unsigned;
 
-  --! FPGA optimization type
-  --!
-  type t_optimization is (
-    opt_none,
-    opt_xilinx_7series,
-    opt_xilinx_ultrascale
-  );
-
   --! Register slice type
   --!
   type t_reg_slice_type is (
@@ -39,6 +31,14 @@ package common_pkg is
     e_reg_slice_fallthrough,
     e_reg_slice_input,
     e_reg_slice_passthrough
+  );
+
+  --! RAM read mode
+  --!
+  type t_ram_mode is (
+    e_ram_read_first,
+    e_ram_write_first,
+    e_ram_no_change
   );
 
   --!
@@ -57,6 +57,22 @@ package common_pkg is
   --! @return     Binary logarithm or 1 if result is less than 1
   --!
   function fn_log2nz(n : integer) return integer;
+  --!
+  --! @brief      Check if value is power of two
+  --!
+  --! @param      n     Value to check
+  --!
+  --! @return     True if value is power of two, False otherwise
+  --!
+  function fn_is_pow2(n : integer) return boolean;
+  --!
+  --! @brief      Get value rounded to next power of two
+  --!
+  --! @param      n     Value to get next power of two of
+  --!
+  --! @return     Value rounded to next power of two
+  --!
+  function fn_ceil_pow2(n : integer) return integer;
   --!
   --! @brief      Get ceil of integer division
   --!
@@ -112,7 +128,7 @@ package common_pkg is
   --!
   procedure pr_lzc(
     signal din    : in  std_logic_vector;
-    signal cnt    : out std_logic_vector(fn_log2nz(din'length)-1 downto 0);
+    signal cnt    : out std_logic_vector;
     signal empty  : out std_logic
   );
 
@@ -131,12 +147,22 @@ package body common_pkg is
     return maximum(1, fn_log2(n));
   end function fn_log2nz;
 
+  function fn_is_pow2(n : integer) return boolean is
+  begin
+    return 2**fn_log2(n) = n;
+  end function fn_is_pow2;
+
+  function fn_ceil_pow2(n : integer) return integer is
+  begin
+    return 2**fn_log2(n);
+  end function fn_ceil_pow2;
+
   function fn_ceil_div(n, m : integer) return integer is
   begin
     return integer(ceil(real(n)/real(m)));
   end function fn_ceil_div;
 
-  function fn_reverse(reverse : boolean; v : std_logic_vector; size : natural) return std_logic_vector is
+  function fn_reverse(v : std_logic_vector; size : positive := 1; reverse : boolean := true) return std_logic_vector is
     constant c_l : natural := v'length;
     constant c_n : natural := c_l/size;
     variable v_v : std_logic_vector(v'length-1 downto 0);
@@ -195,7 +221,7 @@ package body common_pkg is
     return v_ones;
   end function fn_count_ones;
 
-  function fn_onehot2bin(v : std_logic_vector; empty_value : integer := -1) return std_logic_vector
+  function fn_onehot2bin(v : std_logic_vector; empty_value : integer := -1) return std_logic_vector is
     variable v_r : unsigned(fn_log2nz(maximum(v'high, empty_value)+1)-1 downto 0);
   begin
     if empty_value > 0 and v = (v'range => '0') then
@@ -213,29 +239,29 @@ package body common_pkg is
     return std_logic_vector(v_r);
   end function fn_onehot2bin;
 
-  function fn_lssb(v : std_logic_vector) return std_logic_vector
+  function fn_lssb(v : std_logic_vector) return std_logic_vector is
   begin
     return v and std_logic_vector(-signed(v));
   end function fn_lssb;
 
-  function fn_mssb(v : std_logic_vector) return std_logic_vector
+  function fn_mssb(v : std_logic_vector) return std_logic_vector is
   begin
     return fn_reverse(fn_lssb(fn_reverse(v)));
   end function fn_mssb;
 
-  function fn_lssb_index(v : std_logic_vector) return integer
+  function fn_lssb_index(v : std_logic_vector) return integer is
   begin
     return to_integer(unsigned(fn_onehot2bin(fn_lssb(v))));
   end function fn_lssb_index;
 
-  function fn_mssb_index(v : std_logic_vector) return integer
+  function fn_mssb_index(v : std_logic_vector) return integer is
   begin
     return to_integer(unsigned(fn_onehot2bin(fn_mssb(v))));
   end function fn_mssb_index;
 
   procedure pr_lzc(
     signal din    : in  std_logic_vector;
-    signal cnt    : out std_logic_vector(fn_log2nz(din'length)-1 downto 0);
+    signal cnt    : out std_logic_vector;
     signal empty  : out std_logic
   ) is
     constant c_levels   : natural := fn_log2(din'length);
@@ -243,6 +269,9 @@ package body common_pkg is
     variable sel_nodes  : std_logic_vector(2**c_levels-1 downto 0) := (others => '0');
     variable idx_nodes  : t_slv_array(din'length-1 downto 0)(c_levels-1 downto 0);
   begin
+    assert cnt'length = c_levels
+      report "pr_lzc: invalid cnt width "&integer'image(cnt'length)&", expected "&integer'image(c_levels)
+      severity failure;
     if c_levels = 0 then
       cnt   <= not din;
       empty <= not din(0);

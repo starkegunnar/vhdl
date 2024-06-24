@@ -28,13 +28,6 @@ architecture rtl of reg_slice_input is
   signal s_valid_r    : std_logic;
   signal s_ready_r    : std_logic;
 
-  signal s_fifo_valid : std_logic;
-  signal m_fifo_data  : t_data;
-  signal m_fifo_valid : std_logic;
-
-  signal m_data_comb  : t_data;
-  signal m_ready_comb : std_logic;
-
 begin
 
   p_input_reg : process(clk)
@@ -44,7 +37,7 @@ begin
       s_valid_r <= s_valid;
       s_ready_r <= s_ready;
 
-      s_ready   <= m_ready_comb;
+      s_ready   <= not m_valid or m_ready;
 
       if rst = '1' then
         s_valid_r <= '0';
@@ -54,33 +47,16 @@ begin
 
   i_srl_fifo : entity lib_common.srl_fifo(rtl)
   generic map (
-    t_data        => t_data,
-    g_log2_depth  => 2,
-    g_reg_output  => false
+    t_data          => t_data,
+    g_depth         => 3,
+    g_bypass_empty  => true
   )
   port map (
     clk       => clk,
     rst       => rst,
     s_data    => s_data_r,
-    s_valid   => (s_valid_r and s_ready_r and (not m_ready_comb or m_fifo_valid)),
+    s_valid   => s_valid_r and s_ready_r,
     s_ready   => open,
-    m_data    => m_fifo_data,
-    m_valid   => m_fifo_valid,
-    m_ready   => m_ready_comb
-  );
-
-  m_data_comb <= m_fifo_data when m_fifo_valid = '1' else s_data_r;
-
-  i_reg_slice_fallthrough : entity lib_common.reg_slice_fallthrough(rtl)
-  generic map (
-    t_data => t_data
-  )
-  port map (
-    clk       => clk,
-    rst       => rst,
-    s_data    => m_data_comb,
-    s_valid   => ((s_valid_r and s_ready_r) or m_fifo_valid),
-    s_ready   => m_ready_comb,
     m_data    => m_data,
     m_valid   => m_valid,
     m_ready   => m_ready

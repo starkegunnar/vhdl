@@ -34,7 +34,8 @@ architecture rtl of fifo is
 
   signal we, re       : std_logic;
   signal waddr, raddr : unsigned(g_log2_depth-1 downto 0);
-  signal fifo         : t_fifo;
+  signal mem          : t_fifo;
+  signal mem_out      : t_data;
   signal empty        : std_logic;
   signal full         : std_logic;
   signal fifo_ren     : std_logic;
@@ -52,7 +53,7 @@ begin
   begin
     if rising_edge(clk) then
       if we = '1' then
-        fifo(to_integer(waddr)) <= s_data;
+        mem(to_integer(waddr)) <= s_data;
 
         waddr <= waddr + 1;
       end if;
@@ -82,6 +83,8 @@ begin
 
   s_ready <= not full;
 
+  mem_out <= mem(to_integer(raddr));
+
   b_sync_ram : if g_sync_ram generate
     i_reg_slice_fallthrough : entity lib_common.reg_slice_fallthrough(rtl)
     generic map (
@@ -90,7 +93,7 @@ begin
     port map (
       clk       => clk,
       rst       => rst,
-      s_data    => fifo(to_integer(raddr)),
+      s_data    => mem_out,
       s_valid   => not empty,
       s_ready   => fifo_ren,
       m_data    => mem_data,
@@ -98,7 +101,7 @@ begin
       m_ready   => mem_ready
     );
   else generate
-    mem_data  <= fifo(to_integer(raddr));
+    mem_data  <= mem_out;
     mem_valid <= not empty;
     fifo_ren  <= mem_ready;
   end generate b_sync_ram;

@@ -5,14 +5,13 @@ use ieee.numeric_std.all;
 library lib_common;
 
 package slv_stream_tb_pkg is new lib_common.generic_stream_tb_pkg generic map (t_data => std_logic_vector(7 downto 0));
-library lib_common;
-use lib_common.slv_stream_tb_pkg.all;
-use lib_common.common_pkg.all;
-use lib_common.random_2008.all;
-
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+library lib_common;
+use lib_common.common_pkg.all;
+use lib_common.random_2008.all;
+use lib_common.slv_stream_tb_pkg.all;
 
 entity stream_tb is
 end entity stream_tb;
@@ -75,6 +74,7 @@ begin
     streams_in(i).s_valid <= '0';
 
     wait until tb_rst = '0';
+    wait for i*500 ns;
     wait until rising_edge(tb_clk);
 
     for j in 0 to c_num_test_data-1 loop
@@ -219,7 +219,8 @@ begin
 
   i_srl_fifo : entity lib_common.srl_fifo(rtl)
   generic map (
-    t_data  => std_logic_vector(7 downto 0)
+    t_data          => std_logic_vector(7 downto 0),
+    g_bypass_empty  => true
   )
   port map (
     clk     => tb_clk,

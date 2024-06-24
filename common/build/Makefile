@@ -9,6 +9,7 @@ LIBRARY_NAME = lib_common
 
 SOURCES_VHDL = \
 	$(COMPONENT_DIR)/src/common_pkg.vhd \
+	$(COMPONENT_DIR)/src/up_down_counter_rtl.vhd \
 	$(COMPONENT_DIR)/src/reg_slice_full_rtl.vhd \
 	$(COMPONENT_DIR)/src/reg_slice_fallthrough_rtl.vhd \
 	$(COMPONENT_DIR)/src/srl_fifo_rtl.vhd \

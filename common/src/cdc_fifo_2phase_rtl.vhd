@@ -42,6 +42,7 @@ architecture rtl of cdc_fifo_2phase is
   signal src_raddr    : unsigned(g_log2_depth downto 0) := (others => '0');
   signal dst_raddr    : unsigned(g_log2_depth downto 0) := (others => '0');
   signal fifo         : t_fifo;
+  signal fifo_out     : t_data;
   signal empty        : std_logic;
   signal full         : std_logic;
   signal fifo_ren     : std_logic;
@@ -133,6 +134,7 @@ begin
     end if;
   end process;
 
+  fifo_out <= fifo(to_integer(dst_raddr(dst_raddr'high-1 downto 0)));
   b_sync_ram : if g_sync_ram generate
     i_reg_slice_fallthrough : entity lib_common.reg_slice_fallthrough(rtl)
     generic map (
@@ -141,7 +143,7 @@ begin
     port map (
       clk       => dst_clk,
       rst       => dst_rst,
-      s_data    => fifo(to_integer(dst_raddr(dst_raddr'high-1 downto 0))),
+      s_data    => fifo_out,
       s_valid   => not empty,
       s_ready   => fifo_ren,
       m_data    => mem_data,
@@ -149,7 +151,7 @@ begin
       m_ready   => mem_ready
     );
   else generate
-    mem_data  <= fifo(to_integer(dst_raddr(dst_raddr'high-1 downto 0)));
+    mem_data  <= fifo_out;
     mem_valid <= not empty;
     fifo_ren  <= mem_ready;
   end generate b_sync_ram;

@@ -21,30 +21,27 @@ end entity reg_slice_full;
 
 architecture rtl of reg_slice_full is
 
-  signal s_valid_r  : std_logic := '0';
-  signal s_data_r   : t_data;
+  signal s_data_r : t_data;
 
 begin
-
-  s_ready <= not s_valid_r;
 
   p_slice : process(clk)
   begin
     if rising_edge(clk) then
 
-      if s_valid = '1' and s_valid_r = '0' and m_valid = '1' and m_ready = '0' then
-        s_valid_r <= '1';
+      if s_valid = '1' and s_ready = '1' and m_valid = '1' and m_ready = '0' then
+        s_ready <= '0';
       elsif m_ready = '1' then
-        s_valid_r <= '0';
+        s_ready <= '1';
       end if;
 
-      if s_valid_r = '0' then
+      if s_ready = '1' then
         s_data_r <= s_data;
       end if;
 
       if m_valid = '0' or m_ready = '1' then
-        m_valid <= s_valid or s_valid_r;
-        if s_valid_r = '1' then
+        m_valid <= s_valid or not s_ready;
+        if s_ready = '0' then
           m_data <= s_data_r;
         else
           m_data <= s_data;
@@ -52,8 +49,8 @@ begin
       end if;
 
       if rst = '1' then
-        s_valid_r <= '0';
-        m_valid   <= '0';
+        s_ready <= '1';
+        m_valid <= '0';
       end if;
     end if;
   end process;

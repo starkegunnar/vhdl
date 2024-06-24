@@ -14,7 +14,7 @@ library lib_common;
 use lib_common.common_pkg.all;
 use lib_common.random_2008.all;
 
---! Common package
+--! Generic stream package
 --!
 package generic_stream_tb_pkg is
 
@@ -25,7 +25,7 @@ package generic_stream_tb_pkg is
   procedure pr_write_stream(
     signal clk      : in    std_logic;
     signal m_data   : out   t_data;
-    signal m_valid  : out   std_logic;
+    signal m_valid  : inout std_logic;
     signal m_ready  : in    std_logic;
     data            : in    t_data;
     timeout         : in    time;
@@ -36,7 +36,7 @@ package generic_stream_tb_pkg is
     signal clk      : in    std_logic;
     signal s_data   : in    t_data;
     signal s_valid  : in    std_logic;
-    signal s_ready  : out   std_logic;
+    signal s_ready  : inout std_logic;
     data            : out   t_data;
     timeout         : in    time;
     rate            : in    real := 1.0
@@ -49,7 +49,7 @@ package body generic_stream_tb_pkg is
   procedure pr_write_stream(
     signal clk      : in    std_logic;
     signal m_data   : out   t_data;
-    signal m_valid  : out   std_logic;
+    signal m_valid  : inout std_logic;
     signal m_ready  : in    std_logic;
     data            : in    t_data;
     timeout         : in    time;
@@ -78,7 +78,7 @@ package body generic_stream_tb_pkg is
     signal clk      : in    std_logic;
     signal s_data   : in    t_data;
     signal s_valid  : in    std_logic;
-    signal s_ready  : out   std_logic;
+    signal s_ready  : inout std_logic;
     data            : out   t_data;
     timeout         : in    time;
     rate            : in    real := 1.0
