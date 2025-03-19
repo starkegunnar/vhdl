@@ -60,8 +60,8 @@ begin
       m_valid   => m_valid,
       m_ready   => m_ready
     );
-  when e_reg_slice_input =>
-    i_reg_slice : entity lib_common.reg_slice_input(rtl)
+  when e_reg_slice_srl =>
+    i_reg_slice : entity lib_common.reg_slice_srl(rtl)
     generic map (
       t_data => t_data
     )
@@ -75,7 +75,6 @@ begin
       m_valid   => m_valid,
       m_ready   => m_ready
     );
-  when e_reg_slice_passthrough =>
   when others =>
     m_data  <= s_data;
     m_valid <= s_valid;

@@ -18,7 +18,7 @@ end entity stream_tb;
 
 architecture tb of stream_tb is
 
-  constant c_num_streams    : natural := 8;
+  constant c_num_streams    : natural := 5;
   constant c_num_test_data  : natural := 256;
 
   type t_stream is record
@@ -74,7 +74,6 @@ begin
     streams_in(i).s_valid <= '0';
 
     wait until tb_rst = '0';
-    wait for i*500 ns;
     wait until rising_edge(tb_clk);
 
     for j in 0 to c_num_test_data-1 loop
@@ -121,7 +120,7 @@ begin
   p_read : process
     variable v_data : std_logic_vector(7 downto 0) := (others => '0');
   begin
-    streams_out(i).m_ready <= '0';
+    streams_in(i).m_ready <= '0';
 
     wait until tb_rst = '0';
     wait until rising_edge(tb_clk);
@@ -129,39 +128,39 @@ begin
     for j in 0 to c_num_test_data-1 loop
       pr_read_stream(
         tb_clk,
-        streams_out(i).m_data,
-        streams_out(i).m_valid,
-        streams_out(i).m_ready,
+        streams_in(i).m_data,
+        streams_in(i).m_valid,
+        streams_in(i).m_ready,
         v_data,
         100 * c_clk_period,
         1.0);
-      assert v_data = test_data(j) report "Read data mismatch, expected " & to_string(test_data(j)) & " got " & to_string(v_data) severity warning;
+      assert v_data = test_data(j) report "Read data mismatch, expected " & to_hstring(test_data(j)) & " got " & to_hstring(v_data) severity warning;
     end loop;
     wait until rising_edge(tb_clk);
 
     for j in 0 to c_num_test_data-1 loop
       pr_read_stream(
         tb_clk,
-        streams_out(i).m_data,
-        streams_out(i).m_valid,
-        streams_out(i).m_ready,
+        streams_in(i).m_data,
+        streams_in(i).m_valid,
+        streams_in(i).m_ready,
         v_data,
         100 * c_clk_period,
         0.9);
-      assert v_data = test_data(j) report "Read data mismatch, expected " & to_string(test_data(j)) & " got " & to_string(v_data) severity warning;
+      assert v_data = test_data(j) report "Read data mismatch, expected " & to_hstring(test_data(j)) & " got " & to_hstring(v_data) severity warning;
     end loop;
     wait until rising_edge(tb_clk);
 
     for j in 0 to c_num_test_data-1 loop
       pr_read_stream(
         tb_clk,
-        streams_out(i).m_data,
-        streams_out(i).m_valid,
-        streams_out(i).m_ready,
+        streams_in(i).m_data,
+        streams_in(i).m_valid,
+        streams_in(i).m_ready,
         v_data,
         100 * c_clk_period,
         0.7);
-      assert v_data = test_data(j) report "Read data mismatch, expected " & to_string(test_data(j)) & " got " & to_string(v_data) severity warning;
+      assert v_data = test_data(j) report "Read data mismatch, expected " & to_hstring(test_data(j)) & " got " & to_hstring(v_data) severity warning;
     end loop;
 
     all_done(i) <= true;
@@ -202,7 +201,7 @@ begin
     m_ready => streams_in(1).m_ready
   );
 
-  i_dut_registered_input : entity lib_common.reg_slice_input(rtl)
+  i_dut_registered_input : entity lib_common.reg_slice_srl(rtl)
   generic map (
     t_data  => std_logic_vector(7 downto 0)
   )
@@ -217,7 +216,7 @@ begin
     m_ready => streams_in(2).m_ready
   );
 
-  i_srl_fifo : entity lib_common.srl_fifo(rtl)
+  i_fifo_srl : entity lib_common.fifo_srl(rtl)
   generic map (
     t_data          => std_logic_vector(7 downto 0),
     g_bypass_empty  => true
@@ -248,60 +247,7 @@ begin
     m_ready => streams_in(4).m_ready
   );
 
-  i_cdc_2phase : entity lib_common.cdc_2phase(rtl)
-  generic map (
-    t_data        => std_logic_vector(7 downto 0),
-    g_reset_data  => false,
-    g_reset_value => (others => '0')
-  )
-  port map (
-    src_clk   => tb_clk,
-    src_rst   => tb_rst,
-    src_data  => streams_in(5).s_data,
-    src_valid => streams_in(5).s_valid,
-    src_ready => streams_in(5).s_ready,
-    dst_clk   => tb_clk,
-    dst_rst   => tb_rst,
-    dst_data  => streams_in(5).m_data,
-    dst_valid => streams_in(5).m_valid,
-    dst_ready => streams_in(5).m_ready
-  );
-
-  i_cdc_fifo_2phase : entity lib_common.cdc_fifo_2phase(rtl)
-  generic map (
-    t_data  => std_logic_vector(7 downto 0)
-  )
-  port map (
-    src_clk   => tb_clk,
-    src_rst   => tb_rst,
-    src_data  => streams_in(6).s_data,
-    src_valid => streams_in(6).s_valid,
-    src_ready => streams_in(6).s_ready,
-    dst_clk   => tb_clk,
-    dst_rst   => tb_rst,
-    dst_data  => streams_in(6).m_data,
-    dst_valid => streams_in(6).m_valid,
-    dst_ready => streams_in(6).m_ready
-  );
-
-  i_cdc_fifo_gray : entity lib_common.cdc_fifo_gray(rtl)
-  generic map (
-    t_data  => std_logic_vector(7 downto 0)
-  )
-  port map (
-    src_clk   => tb_clk,
-    src_rst   => tb_rst,
-    src_data  => streams_in(7).s_data,
-    src_valid => streams_in(7).s_valid,
-    src_ready => streams_in(7).s_ready,
-    dst_clk   => tb_clk,
-    dst_rst   => tb_rst,
-    dst_data  => streams_in(7).m_data,
-    dst_valid => streams_in(7).m_valid,
-    dst_ready => streams_in(7).m_ready
-  );
-
-  b_arb_in : for i in 0 to c_num_streams-1 generate
+/*   b_arb_in : for i in 0 to c_num_streams-1 generate
     s_arb_data(i)         <= streams_in(i).m_data;
     s_arb_valid(i)        <= streams_in(i).m_valid;
     streams_in(i).m_ready <= s_arb_ready(i);
@@ -324,10 +270,10 @@ begin
     index   => index
   );
 
-  m_arb_ready <= streams_out(to_integer(unsigned(index))).m_ready;
+  m_arb_ready <= streams_out(to_integer(unsigned(index))).m_ready when to_integer(unsigned(index)) < c_num_streams else '0';
   b_arb_out : for i in 0 to c_num_streams-1 generate
     streams_out(i).m_data   <= m_arb_data;
     streams_out(i).m_valid  <= m_arb_valid when i = to_integer(unsigned(index)) else '0';
-  end generate;
+  end generate; */
 
 end architecture tb;

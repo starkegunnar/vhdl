@@ -29,7 +29,7 @@ package common_pkg is
   type t_reg_slice_type is (
     e_reg_slice_full,
     e_reg_slice_fallthrough,
-    e_reg_slice_input,
+    e_reg_slice_srl,
     e_reg_slice_passthrough
   );
 

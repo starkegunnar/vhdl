@@ -48,6 +48,8 @@ architecture rtl of tdpram_asym is
 
   signal ram_douta  : std_logic_vector(g_a_data_width-1 downto 0);
   signal ram_doutb  : std_logic_vector(g_b_data_width-1 downto 0);
+  signal reg_douta  : std_logic_vector(g_data_width-1 downto 0);
+  signal reg_doutb  : std_logic_vector(g_data_width-1 downto 0);
 
 begin
 
@@ -105,6 +107,11 @@ begin
           end loop;
         end if;
       end if;
+      if rsta = '1' then
+        reg_douta <= (others => '0');
+      elsif regcea = '1' then
+        reg_douta <= ram_douta;
+      end if;
     end if;
     if rising_edge(clkb) then
       if enb = '1' then
@@ -153,31 +160,15 @@ begin
           end loop;
         end if;
       end if;
+      if rstb = '1' then
+        reg_doutb <= (others => '0');
+      elsif regceb = '1' then
+        reg_doutb <= ram_doutb;
+      end if;
     end if;
   end process;
 
-
-  b_reg_output : if g_reg_output generate
-    p_reg_output : process(clka, clkb)
-    begin
-      if rising_edge(clka) then
-        if rsta = '1' then
-          douta <= (others => '0');
-        elsif regcea = '1' then
-          douta <= ram_douta;
-        end if;
-      end if;
-      if rising_edge(clkb) then
-        if rstb = '1' then
-          doutb <= (others => '0');
-        elsif regceb = '1' then
-          doutb <= ram_doutb;
-        end if;
-      end if;
-    end process;
-  else generate
-    douta <= ram_douta;
-    doutb <= ram_doutb;
-  end generate;
+  douta <= reg_douta when g_reg_output else ram_douta;
+  doutb <= reg_doutb when g_reg_output else ram_doutb;
 
 end architecture;

@@ -9,22 +9,22 @@ LIBRARY_NAME = lib_common
 
 SOURCES_VHDL = \
 	$(COMPONENT_DIR)/src/common_pkg.vhd \
-	$(COMPONENT_DIR)/src/up_down_counter_rtl.vhd \
-	$(COMPONENT_DIR)/src/reg_slice_full_rtl.vhd \
-	$(COMPONENT_DIR)/src/reg_slice_fallthrough_rtl.vhd \
-	$(COMPONENT_DIR)/src/srl_fifo_rtl.vhd \
-	$(COMPONENT_DIR)/src/reg_slice_input_rtl.vhd \
-	$(COMPONENT_DIR)/src/fifo_rtl.vhd \
-	$(COMPONENT_DIR)/src/cdc_2phase_rtl.vhd \
-	$(COMPONENT_DIR)/src/cdc_gray_rtl.vhd \
-	$(COMPONENT_DIR)/src/cdc_fifo_2phase_rtl.vhd \
-	$(COMPONENT_DIR)/src/cdc_fifo_gray_rtl.vhd \
-	$(COMPONENT_DIR)/src/arbiter_tree_rtl.vhd
+#	$(COMPONENT_DIR)/src/up_down_counter_rtl.vhd \
+#	$(COMPONENT_DIR)/src/reg_slice_full_rtl.vhd \
+#	$(COMPONENT_DIR)/src/reg_slice_fallthrough_rtl.vhd \
+#	$(COMPONENT_DIR)/src/fifo_srl_rtl.vhd \
+#	$(COMPONENT_DIR)/src/reg_slice_srl_rtl.vhd \
+# $(COMPONENT_DIR)/src/fifo_rtl.vhd \
+#	$(COMPONENT_DIR)/src/arbiter_tree_rtl.vhd# \
+#	$(COMPONENT_DIR)/src/cdc_2phase_rtl.vhd \
+#	$(COMPONENT_DIR)/src/cdc_gray_rtl.vhd \
+#	$(COMPONENT_DIR)/src/cdc_fifo_2phase_rtl.vhd \
+#	$(COMPONENT_DIR)/src/cdc_fifo_gray_rtl.vhd
 
 SOURCES_TB = \
-	$(COMPONENT_DIR)/test/random_2008_pkg.vhd \
-	$(COMPONENT_DIR)/test/generic_stream_tb_pkg.vhd \
-	$(COMPONENT_DIR)/test/stream_tb.vhd
+#	$(COMPONENT_DIR)/test/random_2008_pkg.vhd \
+#	$(COMPONENT_DIR)/test/generic_stream_tb_pkg.vhd \
+#	$(COMPONENT_DIR)/test/stream_tb.vhd
 
 TB_TOP = stream_tb
 

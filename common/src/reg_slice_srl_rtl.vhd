@@ -4,7 +4,7 @@ use ieee.std_logic_1164.all;
 library lib_common;
 use lib_common.common_pkg.all;
 
-entity reg_slice_input is
+entity reg_slice_srl is
   generic (
     type t_data
   );
@@ -20,9 +20,9 @@ entity reg_slice_input is
     m_valid : out std_logic;
     m_ready : in  std_logic
   );
-end entity reg_slice_input;
+end entity reg_slice_srl;
 
-architecture rtl of reg_slice_input is
+architecture rtl of reg_slice_srl is
 
   signal s_data_r     : t_data;
   signal s_valid_r    : std_logic;
@@ -45,11 +45,12 @@ begin
     end if;
   end process;
 
-  i_srl_fifo : entity lib_common.srl_fifo(rtl)
+  i_fifo_srl : entity lib_common.fifo_srl(rtl)
   generic map (
     t_data          => t_data,
     g_depth         => 3,
-    g_bypass_empty  => true
+    g_bypass_empty  => true,
+    g_reg_output    => true
   )
   port map (
     clk       => clk,

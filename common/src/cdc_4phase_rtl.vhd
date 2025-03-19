@@ -1,7 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
-entity cdc_2phase is
+entity cdc_4phase is
   generic (
     type t_data;
     g_src_sync_ff : natural range 2 to 12 := 2;
@@ -22,9 +22,9 @@ entity cdc_2phase is
     dst_valid : out std_logic;
     dst_ready : in  std_logic
   );
-end entity cdc_2phase;
+end entity cdc_4phase;
 
-architecture rtl of cdc_2phase is
+architecture rtl of cdc_4phase is
 
   signal src_req    : std_logic := '0';
   signal src_ack    : std_logic := '0';
