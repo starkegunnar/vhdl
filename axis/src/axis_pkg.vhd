@@ -8,12 +8,12 @@ use ieee.math_real.all;
 package axis_pkg is
 
   type t_axis is record
-    data : std_logic_vector;
-    keep : std_logic_vector;
-    last : std_logic;
-    id   : std_logic_vector;
-    dest : std_logic_vector;
-    user : std_logic_vector;
+    tdata : std_logic_vector;
+    tkeep : std_logic_vector;
+    tlast : std_logic;
+    tid   : std_logic_vector;
+    tdest : std_logic_vector;
+    tuser : std_logic_vector;
   end record;
 
   type t_axis_cfg is record

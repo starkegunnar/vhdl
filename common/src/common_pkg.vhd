@@ -126,6 +126,14 @@ package common_pkg is
   function fn_lssb_index(v : std_logic_vector) return integer;
   function fn_mssb_index(v : std_logic_vector) return integer;
   --!
+  function fn_cond(expr : boolean; a, b : std_logic) return std_logic;
+  function fn_cond(expr : boolean; a, b : std_logic_vector) return std_logic_vector;
+  function fn_cond(expr : boolean; a, b : unsigned) return unsigned;
+  function fn_cond(expr : boolean; a, b : signed) return signed;
+  function fn_cond(expr : boolean; a, b : integer) return integer;
+  function fn_cond(expr : boolean; a, b : real) return real;
+
+
   procedure pr_lzc(
     signal din    : in  std_logic_vector;
     signal cnt    : out std_logic_vector;
@@ -258,6 +266,62 @@ package body common_pkg is
   begin
     return to_integer(unsigned(fn_onehot2bin(fn_mssb(v))));
   end function fn_mssb_index;
+
+
+  function fn_cond(expr : boolean; a, b : std_logic) return std_logic is
+  begin
+    if expr then
+      return a;
+    else
+      return b;
+    end if;
+  end function fn_cond;
+
+  function fn_cond(expr : boolean; a, b : std_logic_vector) return std_logic_vector is
+  begin
+    if expr then
+      return a;
+    else
+      return b;
+    end if;
+  end function fn_cond;
+
+  function fn_cond(expr : boolean; a, b : unsigned) return unsigned is
+  begin
+    if expr then
+      return a;
+    else
+      return b;
+    end if;
+  end function fn_cond;
+
+  function fn_cond(expr : boolean; a, b : signed) return signed is
+  begin
+    if expr then
+      return a;
+    else
+      return b;
+    end if;
+  end function fn_cond;
+
+  function fn_cond(expr : boolean; a, b : integer) return integer is
+  begin
+    if expr then
+      return a;
+    else
+      return b;
+    end if;
+  end function fn_cond;
+
+  function fn_cond(expr : boolean; a, b : real) return real is
+  begin
+    if expr then
+      return a;
+    else
+      return b;
+    end if;
+  end function fn_cond;
+
 
   procedure pr_lzc(
     signal din    : in  std_logic_vector;

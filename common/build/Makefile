@@ -9,6 +9,9 @@ LIBRARY_NAME = lib_common
 
 SOURCES_VHDL = \
 	$(COMPONENT_DIR)/src/common_pkg.vhd \
+	$(COMPONENT_DIR)/src/prio_enc_rtl.vhd \
+	$(COMPONENT_DIR)/src/arbiter_rtl.vhd \
+	$(COMPONENT_DIR)/src/test_mux_rtl.vhd \
 #	$(COMPONENT_DIR)/src/up_down_counter_rtl.vhd \
 #	$(COMPONENT_DIR)/src/reg_slice_full_rtl.vhd \
 #	$(COMPONENT_DIR)/src/reg_slice_fallthrough_rtl.vhd \
@@ -26,7 +29,7 @@ SOURCES_TB = \
 #	$(COMPONENT_DIR)/test/generic_stream_tb_pkg.vhd \
 #	$(COMPONENT_DIR)/test/stream_tb.vhd
 
-TB_TOP = stream_tb
+TB_TOP = test_mux
 
 simulate: elab
 	(cd $(OUT_DIR) && xsim -g sim_snapshot)

@@ -57,26 +57,26 @@ begin
   generic map (
     g_dst_sync_ff => g_dst_sync_ff,
     g_reg_input   => false,
-    g_init_val    => '0',
+    g_init_val    => '0'
   )
   port map (
     src_clk       => src_clk,
     src_data      => src_req,
     dst_clk       => dst_clk,
-    dst_data      => dst_req,
+    dst_data      => dst_req
   );
 
   i_cdc_single_ack : entity lib_common.cdc_single(rtl)
   generic map (
     g_dst_sync_ff => g_src_sync_ff,
     g_reg_input   => false,
-    g_init_val    => '0',
+    g_init_val    => '0'
   )
   port map (
     src_clk       => dst_clk,
     src_data      => dst_ack,
     dst_clk       => src_clk,
-    dst_data      => src_ack,
+    dst_data      => src_ack
   );
 
   b_dst : if g_reg_output generate
@@ -106,6 +106,6 @@ begin
         end if;
       end if;
     end process;
-  end b_dst;
+  end generate b_dst;
 
 end architecture rtl;

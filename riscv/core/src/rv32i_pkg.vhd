@@ -79,9 +79,9 @@ package rv32i_pkg is
   constant c_opcode_hi      : natural := 4;
   constant c_opcode_lo      : natural := 0;
   subtype t_opcode_range is natural range c_opcode_hi downto c_opcode_lo;
-  constant c_opcode_inst_hi : natural := 6;
-  constant c_opcode_inst_lo : natural := 2;
-  subtype t_opcode_inst_range is natural range c_opcode_inst_hi downto c_opcode_inst_lo;
+  constant c_opcode_instr_hi : natural := 6;
+  constant c_opcode_instr_lo : natural := 2;
+  subtype t_opcode_instr_range is natural range c_opcode_instr_hi downto c_opcode_instr_lo;
   constant c_opcode_valid_hi : natural := 1;
   constant c_opcode_valid_lo : natural := 0;
   subtype t_opcode_valid_range is natural range c_opcode_valid_hi downto c_opcode_valid_lo;

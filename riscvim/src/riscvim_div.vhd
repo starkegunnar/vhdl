@@ -13,15 +13,15 @@ entity riscvim_div is
     id_valid    : in  std_logic;
     div_rem     : in  std_logic;
     div_signed  : in  std_logic;
-    op_a        : in  std_logic_vector(t_xlen_range);
-    op_b        : in  std_logic_vector(t_xlen_range);
+    op_a        : in  std_logic_vector(t_x_range);
+    op_b        : in  std_logic_vector(t_x_range);
 
     halt        : in  std_logic;
 
     ex_valid    : out std_logic;
     ex_ready    : out std_logic;
     wb_ready    : in  std_logic;
-    res         : out std_logic_vector(t_xlen_range) := (others => '0')
+    res         : out std_logic_vector(t_x_range) := (others => '0')
   );
 end entity riscvim_div;
 
@@ -34,40 +34,58 @@ architecture rtl of rv32m_div is
 
   signal op_a_neg   : std_logic;
   signal op_b_neg   : std_logic;
-  signal op_a_abs   : unsigned(t_xlen_range);
-  signal op_b_abs   : unsigned(t_xlen_range);
+  signal op_a_abs   : unsigned(t_x_range);
+  signal op_b_abs   : unsigned(t_x_range);
+  signal op_a_shift : unsigned(t_x_range);
 
   signal init       : std_logic;
 
-  signal n          : unsigned(t_xlen_range); -- numerator
-  signal d          : unsigned(t_xlen_range); -- dividend
-  signal q          : unsigned(t_xlen_range); -- quotient
-  signal r          : unsigned(t_xlen_range); -- remainder
+  signal zero_b      : std_logic_vector(3 downto 0);
 
-  signal n_shift    : unsigned(t_xlen_range);
-  signal r_shift    : unsigned(t_xlen_range);
+  signal n          : unsigned(t_x_range); -- numerator
+  signal d          : unsigned(t_x_range); -- dividend
+  signal q          : unsigned(t_x_range); -- quotient
+  signal r          : unsigned(t_x_range); -- remainder
+
+  signal n_shift    : unsigned(t_x_range);
+  signal r_shift    : unsigned(t_x_range);
   signal q_bit      : std_ulogic;
-  signal q_shift    : unsigned(t_xlen_range);
-  signal r_diff     : unsigned(t_xlen_range);
-  signal n_next     : unsigned(t_xlen_range);
-  signal d_next     : unsigned(t_xlen_range);
-  signal q_next     : unsigned(t_xlen_range);
-  signal r_next     : unsigned(t_xlen_range);
+  signal q_shift    : unsigned(t_x_range);
+  signal r_diff     : unsigned(t_x_range);
+  signal n_next     : unsigned(t_x_range);
+  signal d_next     : unsigned(t_x_range);
+  signal q_next     : unsigned(t_x_range);
+  signal r_next     : unsigned(t_x_range);
 
   signal div_en     : std_logic;
 
-  signal count      : unsigned(f_log2(c_xlen)-1 downto 0);
+  signal count      : unsigned(f_log2(c_x_w)-1 downto 0);
   signal count_zero : std_logic;
 
   signal res_neg    : std_logic;
-  signal res_comb   : unsigned(t_xlen_range);
+  signal res_comb   : unsigned(t_x_range);
 
   -- synthesis translate_off
-  signal div_test  : signed(c_xlen downto 0);
-  signal rem_test  : signed(c_xlen downto 0);
+  signal div_test  : signed(c_x_w downto 0);
+  signal rem_test  : signed(c_x_w downto 0);
   -- synthesis translate_on
 
 begin
+
+  zero_b <= nor op_b_abs(31 downto 24) & nor op_b_abs(23 downto 16) & nor op_b_abs(15 downto 8) & nor op_b_abs(7 downto 0);
+
+  p_shift_b : process(all)
+  begin
+    if zero_b(3 downto 1) = "111" then
+      op_b_shift <= shift_left(op_b_abs, 24);
+    elsif zero_b(3 downto 2) = "11" then
+      op_b_shift <= shift_left(op_b_abs, 16);
+    elsif zero_b(3) = '1' then
+      op_b_shift <= shift_left(op_b_abs, 8);
+    else
+      op_b_shift <= op_b_abs;
+    end if;
+  end process;
 
   op_a_neg <= div_signed and op_a(c_xhi);
   op_b_neg <= div_signed and op_b(c_xhi);
@@ -78,12 +96,12 @@ begin
   r_shift <= r(c_xhi-1 downto 0) & n(c_xhi);
 
   -- Calulate r >= d
-  (q_bit, r_diff) <= ('0' & r_shift) - d;
+  (q_bit, r_diff) <= ('0' & n) - d;
 
   q_shift <= q(c_xhi-1 downto 0) & not q_bit;
 
   n_next <= op_a_abs when init = '1' else n_shift;
-  d_next <= op_b_abs when init = '1' else d;
+  d_next <= op_b_shift when init = '1' else d;
   q_next <= (others => '0') when init = '1' else q_shift;
   r_next <= (others => '0') when init = '1' else r_diff when q_bit = '0' else r_shift;
 
@@ -135,7 +153,15 @@ begin
         count <= (others => '0');
       elsif id_valid = '1' and halt = '0' then
         if init = '1' then
-          count <= to_unsigned(c_xhi, count'length);
+          if zero_b(3 downto 1) = "111" then
+            count <= to_unsigned(7, count'length);
+          elsif zero_b(3 downto 2) = "11" then
+            count <= to_unsigned(15, count'length);
+          elsif zero_b(3) = '1' then
+            count <= to_unsigned(23, count'length);
+          else
+            count <= to_unsigned(31, count'length);
+          end if;
         elsif count_zero = '0' then
           count <= count - 1;
         end if;
@@ -165,7 +191,7 @@ begin
   res <= std_logic_vector(-signed(res_comb)) when res_neg = '1' else std_logic_vector(res_comb);
 
   -- synthesis translate_off
-  div_test <= signed((sign_a and op_a(c_xhi)) & op_a) / signed((sign_b and op_b(c_xhi)) & op_b);
+  div_test <= to_signed(-1, 33) when unsigned(op_b) = 0 else signed((sign_a and op_a(c_xhi)) & op_a) / signed((sign_b and op_b(c_xhi)) & op_b);
   -- synthesis translate_on
 
 end architecture rtl;

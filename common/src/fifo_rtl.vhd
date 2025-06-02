@@ -168,7 +168,7 @@ begin
           s_rcount <= s_rcount_comb;
         end if;
       end if;
-    end process;
+    end process;w
 
   else generate
 
