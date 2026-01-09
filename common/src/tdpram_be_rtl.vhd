@@ -41,7 +41,7 @@ architecture rtl of tdpram_be is
   constant c_cw     : positive := g_col_width;
   constant c_nc     : positive := g_num_cols;
   constant c_dw     : positive := c_nc*c_cw;
-  constant c_lsbw   : positive := fn_log2(c_nc);
+  constant c_lsbw   : positive := f_log2(c_nc);
   constant c_sz     : positive := 2**(c_aw);
 
   signal ram        : t_slv_array(c_sz-1 downto 0)(c_dw-1 downto 0) := (others => (others => '0'));

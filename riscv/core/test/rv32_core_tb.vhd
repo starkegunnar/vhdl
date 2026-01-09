@@ -29,7 +29,7 @@ architecture sim of rv32_core_tb is
 
   --"/home/martin/projects/riscv/target/share/riscv-tests/isa/rv32ui-p-simple"
 
-  impure function fn_fill_instr return t_slv_array is
+  impure function f_fill_instr return t_slv_array is
     file obj_file   : t_int_file;
     variable v_res  : t_slv_array(0 to (c_instr_mem_bytes / 4)-1)(t_xlen_range) := (others => (others => '0'));
     variable v_word : integer;
@@ -80,7 +80,7 @@ begin
 
   p_fill : process
   begin
-    instr_mem <= fn_fill_instr;
+    instr_mem <= f_fill_instr;
     wait;
   end process;
 

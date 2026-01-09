@@ -41,9 +41,9 @@ end entity fifo;
 
 architecture rtl of fifo is
 
-  constant c_aw       : natural := fn_log2(g_depth);
+  constant c_aw       : natural := f_log2(g_depth);
   constant c_cw       : natural := c_aw+1;
-  constant c_depth    : natural := fn_ceil_pow2(g_depth);
+  constant c_depth    : natural := f_ceil_pow2(g_depth);
 
   type t_data_array is array(natural range <>) of t_data;
 

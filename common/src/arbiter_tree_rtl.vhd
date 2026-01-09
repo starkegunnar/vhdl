@@ -13,12 +13,12 @@ entity arbiter_tree is
   port (
     -- Source data and flow control
     s_data  : in  t_slv_array(g_num_inputs-1 downto 0)(g_data_width-1 downto 0);
-    s_prio  : in  std_logic_vector(fn_log2nz(g_num_inputs)-1 downto 0) := (others => '0');
+    s_prio  : in  std_logic_vector(f_log2nz(g_num_inputs)-1 downto 0) := (others => '0');
     s_valid : in  std_logic_vector(g_num_inputs-1 downto 0);
     s_ready : out std_logic_vector(g_num_inputs-1 downto 0);
 
     m_data  : out std_logic_vector(g_data_width-1 downto 0);
-    m_index : out std_logic_vector(fn_log2nz(g_num_inputs)-1 downto 0);
+    m_index : out std_logic_vector(f_log2nz(g_num_inputs)-1 downto 0);
     m_valid : out std_logic;
     m_ready : in  std_logic
   );
@@ -29,7 +29,7 @@ architecture rtl of arbiter_tree is
 begin
 
   b_arbiter : if g_num_inputs > 1 generate
-    constant c_levels : natural := fn_log2(g_num_inputs);
+    constant c_levels : natural := f_log2(g_num_inputs);
     signal data_nodes   : t_slv_array(2**c_levels-2 downto 0)(m_data'range) := (others => (others => '0'));
     signal index_nodes  : t_slv_array(2**c_levels-2 downto 0)(m_index'range) := (others => (others => '0'));
     signal valid_nodes  : std_logic_vector(2**c_levels-2 downto 0) := (others => '0');

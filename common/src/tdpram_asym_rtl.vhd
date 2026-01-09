@@ -42,7 +42,7 @@ architecture rtl of tdpram_asym is
   constant c_dw_min : positive := minimum(g_a_data_width, g_b_data_width);
   constant c_sz_max : positive := 2**maximum(g_a_addr_width, g_b_addr_width);
   constant c_ratio  : positive := c_dw_max / c_dw_min;
-  constant c_lsbw   : positive := fn_log2(c_ratio);
+  constant c_lsbw   : positive := f_log2(c_ratio);
 
   signal ram        : t_slv_array(c_sz_max-1 downto 0)(c_dw_min-1 downto 0);
 

@@ -18,10 +18,15 @@ end entity stream_tb;
 
 architecture tb of stream_tb is
 
-  constant c_num_streams    : natural := 5;
-  constant c_num_test_data  : natural := 256;
+  constant c_num_std_streams  : natural := 4;
+  constant c_num_arb_streams  : natural := 7;
+  constant c_num_streams      : natural := c_num_std_streams+c_num_arb_streams;
+  constant c_num_test_data    : natural := 256;
+  constant c_s                : natural := c_num_std_streams;
+  constant c_a                : natural := c_num_arb_streams;
 
   type t_stream is record
+    n       : natural;
     s_data  : std_logic_vector(7 downto 0);
     s_valid : std_logic;
     s_ready : std_logic;
@@ -31,49 +36,47 @@ architecture tb of stream_tb is
   end record;
   type t_streams is array (c_num_streams-1 downto 0) of t_stream;
 
-  impure function fn_fill_test_data return t_slv_array is
+  impure function f_fill_test_data return t_slv_array is
     variable v_test_data : t_slv_array(c_num_test_data-1 downto 0)(7 downto 0);
   begin
     for i in 0 to c_num_test_data-1 loop
       v_test_data(i) := random(8);
     end loop;
     return v_test_data;
-  end function fn_fill_test_data;
+  end function f_fill_test_data;
 
   constant c_clk_period : time := 10 ns;
 
-  signal tb_clk       : std_logic := '0';
-  signal tb_rst       : std_logic := '1';
+  signal tb_clk       : std_logic := '1';
+  signal tb_rst       : std_logic := '0';
 
   signal all_done     : boolean_vector(c_num_streams-1 downto 0) := (others => false);
 
-  signal streams_in   : t_streams := (others => (s_data => (others => '0'), s_valid => '0', s_ready => '0', m_data => (others => '0'), m_valid => '0', m_ready => '0'));
-  signal s_arb_data   : t_slv_array(c_num_streams-1 downto 0)(7 downto 0);
-  signal s_arb_valid  : std_logic_vector(c_num_streams-1 downto 0);
-  signal s_arb_ready  : std_logic_vector(c_num_streams-1 downto 0);
-  signal m_arb_data   : std_logic_vector(7 downto 0);
-  signal m_arb_valid  : std_logic;
-  signal m_arb_ready  : std_logic;
-  signal index        : std_logic_vector(fn_log2(c_num_streams)-1 downto 0);
-  signal streams_out  : t_streams := (others => (s_data => (others => '0'), s_valid => '0', s_ready => '0', m_data => (others => '0'), m_valid => '0', m_ready => '0'));
+  signal streams_in   : t_streams := (others => (n => 0, s_data => (others => '0'), s_valid => '0', s_ready => '0', m_data => (others => '0'), m_valid => '0', m_ready => '0'));
   signal test_data    : t_slv_array(c_num_test_data-1 downto 0)(7 downto 0);
+
+  signal req          : std_logic_vector(c_a-1 downto 0);
+  signal gnt          : std_logic_vector(c_a-1 downto 0);
+  signal ack          : std_logic_vector(c_a-1 downto 0);
+  signal gnt_index    : std_logic_vector(f_log2(c_a)-1 downto 0);
 
 begin
 
   tb_clk <= '0' when all_done = (all_done'high downto all_done'low => true) else not tb_clk after c_clk_period / 2;
-  tb_rst <= '1' when all_done = (all_done'high downto all_done'low => true) else '0' after 16 * c_clk_period;
+  tb_rst <= '0' when all_done = (all_done'high downto all_done'low => true) else '1' after 16 * c_clk_period;
 
-  test_data <= fn_fill_test_data;
+  test_data <= f_fill_test_data;
 
   b_gen_ctrl : for i in 0 to c_num_streams-1 generate
 
   p_write : process
     variable v_data : std_logic_vector(7 downto 0) := (others => '0');
   begin
+    streams_in(i).n       <= i;
     streams_in(i).s_data  <= (others => '0');
     streams_in(i).s_valid <= '0';
 
-    wait until tb_rst = '0';
+    wait until tb_rst = '1';
     wait until rising_edge(tb_clk);
 
     for j in 0 to c_num_test_data-1 loop
@@ -122,7 +125,7 @@ begin
   begin
     streams_in(i).m_ready <= '0';
 
-    wait until tb_rst = '0';
+    wait until tb_rst = '1';
     wait until rising_edge(tb_clk);
 
     for j in 0 to c_num_test_data-1 loop
@@ -171,13 +174,13 @@ begin
 
   end generate b_gen_ctrl;
 
-  i_dut_fallthrough : entity lib_common.reg_slice_fallthrough(rtl)
+  i_dut_full : entity lib_common.reg_slice_full(rtl)
   generic map (
-    t_data  => std_logic_vector(7 downto 0)
+    DW  => 8
   )
   port map (
     clk     => tb_clk,
-    rst     => tb_rst,
+    rst_n   => tb_rst,
     s_data  => streams_in(0).s_data,
     s_valid => streams_in(0).s_valid,
     s_ready => streams_in(0).s_ready,
@@ -186,13 +189,13 @@ begin
     m_ready => streams_in(0).m_ready
   );
 
-  i_dut_full : entity lib_common.reg_slice_full(rtl)
+  i_dut_pipe : entity lib_common.reg_slice_pipe(rtl)
   generic map (
-    t_data  => std_logic_vector(7 downto 0)
+    DW  => 8
   )
   port map (
     clk     => tb_clk,
-    rst     => tb_rst,
+    rst_n   => tb_rst,
     s_data  => streams_in(1).s_data,
     s_valid => streams_in(1).s_valid,
     s_ready => streams_in(1).s_ready,
@@ -201,13 +204,13 @@ begin
     m_ready => streams_in(1).m_ready
   );
 
-  i_dut_registered_input : entity lib_common.reg_slice_srl(rtl)
+  i_dut_spill : entity lib_common.reg_slice_spill(rtl)
   generic map (
-    t_data  => std_logic_vector(7 downto 0)
+    DW  => 8
   )
   port map (
     clk     => tb_clk,
-    rst     => tb_rst,
+    rst_n   => tb_rst,
     s_data  => streams_in(2).s_data,
     s_valid => streams_in(2).s_valid,
     s_ready => streams_in(2).s_ready,
@@ -216,64 +219,93 @@ begin
     m_ready => streams_in(2).m_ready
   );
 
-  i_fifo_srl : entity lib_common.fifo_srl(rtl)
+  i_dut_cdc_4phase : entity lib_common.cdc_4phase(rtl)
   generic map (
-    t_data          => std_logic_vector(7 downto 0),
-    g_bypass_empty  => true
+    DW  => 8
   )
   port map (
-    clk     => tb_clk,
-    rst     => tb_rst,
+    s_clk   => tb_clk,
+    s_rst_n => tb_rst,
     s_data  => streams_in(3).s_data,
     s_valid => streams_in(3).s_valid,
     s_ready => streams_in(3).s_ready,
+    m_clk   => tb_clk,
+    m_rst_n => tb_rst,
     m_data  => streams_in(3).m_data,
     m_valid => streams_in(3).m_valid,
     m_ready => streams_in(3).m_ready
   );
 
-  i_fifo : entity lib_common.fifo(rtl)
-  generic map (
-    t_data  => std_logic_vector(7 downto 0)
-  )
-  port map (
-    clk     => tb_clk,
-    rst     => tb_rst,
-    s_data  => streams_in(4).s_data,
-    s_valid => streams_in(4).s_valid,
-    s_ready => streams_in(4).s_ready,
-    m_data  => streams_in(4).m_data,
-    m_valid => streams_in(4).m_valid,
-    m_ready => streams_in(4).m_ready
-  );
 
-/*   b_arb_in : for i in 0 to c_num_streams-1 generate
-    s_arb_data(i)         <= streams_in(i).m_data;
-    s_arb_valid(i)        <= streams_in(i).m_valid;
-    streams_in(i).m_ready <= s_arb_ready(i);
+--  i_fifo_srl : entity lib_common.fifo_srl(rtl)
+--  generic map (
+--    t_data          => std_logic_vector(7 downto 0),
+--    g_bypass_empty  => true
+--  )
+--  port map (
+--    clk     => tb_clk,
+--    rst     => tb_rst,
+--    s_data  => streams_in(3).s_data,
+--    s_valid => streams_in(3).s_valid,
+--    s_ready => streams_in(3).s_ready,
+--    m_data  => streams_in(3).m_data,
+--    m_valid => streams_in(3).m_valid,
+--    m_ready => streams_in(3).m_ready
+--  );
+
+--  i_fifo : entity lib_common.fifo(rtl)
+--  generic map (
+--    t_data  => std_logic_vector(7 downto 0)
+--  )
+--  port map (
+--    clk     => tb_clk,
+--    rst     => tb_rst,
+--    s_data  => streams_in(4).s_data,
+--    s_valid => streams_in(4).s_valid,
+--    s_ready => streams_in(4).s_ready,
+--    m_data  => streams_in(4).m_data,
+--    m_valid => streams_in(4).m_valid,
+--    m_ready => streams_in(4).m_ready
+--  );
+
+--  i_spill : entity lib_common.reg_slice_spill(rtl)
+--  generic map (
+--    t_data  => std_logic_vector(7 downto 0)
+--  )
+--  port map (
+--    clk     => tb_clk,
+--    rst     => tb_rst,
+--    s_data  => streams_in(4).s_data,
+--    s_valid => streams_in(4).s_valid,
+--    s_ready => streams_in(4).s_ready,
+--    m_data  => streams_in(4).m_data,
+--    m_valid => streams_in(4).m_valid,
+--    m_ready => streams_in(4).m_ready
+--  );
+
+  b_req : for i in 0 to c_a-1 generate
+    req(i) <= streams_in(c_s+i).s_valid;
+    ack(i) <= streams_in(c_s+i).s_valid and streams_in(c_s+i).s_ready and gnt(i);
   end generate;
 
-  i_arbiter_tree : entity lib_common.arbiter_tree(rtl)
+  i_arbiter : entity lib_common.arbiter(rtl)
   generic map (
-    g_data_width  => 8,
-    g_num_inputs  => c_num_streams
+    WIDTH  => c_num_arb_streams
   )
   port map (
-    clk     => tb_clk,
-    rst     => tb_rst,
-    s_data  => s_arb_data,
-    s_valid => s_arb_valid,
-    s_ready => s_arb_ready,
-    m_data  => m_arb_data,
-    m_valid => m_arb_valid,
-    m_ready => m_arb_ready,
-    index   => index
+    clk         => tb_clk,
+    rst_n       => tb_rst,
+    req         => req,
+    ack         => ack,
+    grant       => gnt,
+    grant_valid => open,
+    grant_index => gnt_index
   );
 
-  m_arb_ready <= streams_out(to_integer(unsigned(index))).m_ready when to_integer(unsigned(index)) < c_num_streams else '0';
-  b_arb_out : for i in 0 to c_num_streams-1 generate
-    streams_out(i).m_data   <= m_arb_data;
-    streams_out(i).m_valid  <= m_arb_valid when i = to_integer(unsigned(index)) else '0';
-  end generate; */
+  b_gnt : for i in 0 to c_a-1 generate
+    streams_in(c_s+i).m_valid <= streams_in(c_s+i).s_valid and gnt(i);
+    streams_in(c_s+i).m_data  <= streams_in(c_s+i).s_data;
+    streams_in(c_s+i).s_ready <= streams_in(c_s+i).m_ready and gnt(i);
+  end generate;
 
 end architecture tb;

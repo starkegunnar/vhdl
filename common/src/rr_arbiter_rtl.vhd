@@ -20,7 +20,7 @@ entity rr_arbiter is
     s_ready : out std_logic_vector(g_num_inputs-1 downto 0);
 
     m_data  : out std_logic_vector(g_data_width-1 downto 0);
-    m_index : out std_logic_vector(fn_log2nz(g_num_inputs)-1 downto 0);
+    m_index : out std_logic_vector(f_log2nz(g_num_inputs)-1 downto 0);
     m_valid : out std_logic;
     m_ready : in  std_logic
   );
@@ -28,7 +28,7 @@ end entity rr_arbiter;
 
 architecture rtl of rr_arbiter is
 
-  signal s_valid_mask   : std_logic_vector(2**fn_log2nz(g_num_inputs)-1 downto 0) := (others => '1');
+  signal s_valid_mask   : s_valid'subtype := (others => '1');
   signal s_valid_masked : s_valid'subtype;
   signal msb_mask       : s_valid'subtype;
   signal msb_empty      : std_logic;
@@ -52,7 +52,7 @@ begin
     end if;
   end process;
 
-  s_valid_masked <= s_valid_mask(s_valid'range) and s_valid;
+  s_valid_masked <= s_valid_mask and s_valid;
 
   p_s_prio_comb : process(all)
   begin

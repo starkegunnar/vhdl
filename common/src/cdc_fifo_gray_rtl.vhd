@@ -36,7 +36,7 @@ architecture rtl of cdc_fifo_gray is
 
   type t_fifo is array(2**g_log2_depth-1 downto 0) of t_data;
 
-  function fn_fifo_full(wg, rg : unsigned) return std_logic is
+  function f_fifo_full(wg, rg : unsigned) return std_logic is
   begin
     if wg = (not rg(rg'high downto rg'high-1) & rg(rg'high-2 downto 0)) then
       return '1';
@@ -44,7 +44,7 @@ architecture rtl of cdc_fifo_gray is
     return '0';
   end function;
 
-  function fn_fifo_empty(wg, rg : unsigned) return std_logic is
+  function f_fifo_empty(wg, rg : unsigned) return std_logic is
   begin
     if wg = rg then
       return '1';
@@ -87,7 +87,7 @@ begin
       end if;
 
       src_waddr       <= v_waddr;
-      src_waddr_gray  <= fn_bin2gray(v_waddr);
+      src_waddr_gray  <= f_bin2gray(v_waddr);
 
       -- Sync raddr to source clock
       src_raddr_gray  <= src_raddr_gray(src_raddr_gray'high-1 downto 0) & dst_raddr_gray;
@@ -100,11 +100,11 @@ begin
     end if;
   end process;
 
-  full  <= fn_fifo_full(src_waddr_gray, src_raddr_gray(src_raddr_gray'high));
+  full  <= f_fifo_full(src_waddr_gray, src_raddr_gray(src_raddr_gray'high));
 
   src_ready <= not full;
 
-  empty <= fn_fifo_empty(dst_waddr_gray(dst_waddr_gray'high), dst_raddr_gray);
+  empty <= f_fifo_empty(dst_waddr_gray(dst_waddr_gray'high), dst_raddr_gray);
 
   re <= fifo_ren and not empty;
 
@@ -120,7 +120,7 @@ begin
       end if;
 
       dst_raddr       <= v_raddr;
-      dst_raddr_gray  <= fn_bin2gray(v_raddr);
+      dst_raddr_gray  <= f_bin2gray(v_raddr);
 
       -- Sync waddr to destination clock
       dst_waddr_gray  <= dst_waddr_gray(dst_waddr_gray'high-1 downto 0) & src_waddr_gray;

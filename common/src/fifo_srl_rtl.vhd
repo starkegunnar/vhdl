@@ -28,10 +28,10 @@ end entity fifo_srl;
 
 architecture rtl of fifo_srl is
 
-  constant c_cw         : natural := fn_log2(g_depth)+1;
+  constant c_cw         : natural := f_log2(g_depth)+1;
   constant c_crst       : std_logic_vector(c_cw-1 downto 0) := std_logic_vector(to_unsigned(2**(c_cw-1)-1, c_cw));
   constant c_going_full : std_logic_vector(c_cw-1 downto 0) := std_logic_vector(to_unsigned(2**(c_cw)-2, c_cw));
-  constant c_depth      : natural := fn_ceil_pow2(g_depth);
+  constant c_depth      : natural := f_ceil_pow2(g_depth);
 
   type t_shreg is array(c_depth-1 downto 0) of t_data;
 

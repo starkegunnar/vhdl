@@ -13,7 +13,7 @@ entity prio_enc is
   port (
     input_mask    : in  std_logic_vector(g_width-1 downto 0);
     output_valid  : out std_logic;
-    output_index  : out std_logic_vector(fn_log2nz(g_width)-1 downto 0);
+    output_index  : out std_logic_vector(f_log2nz(g_width)-1 downto 0);
     output_mask   : out std_logic_vector(g_width-1 downto 0)
   );
 end entity prio_enc;
@@ -23,10 +23,10 @@ architecture rtl of prio_enc is
 begin
 
   b_prio_enc : if g_width > 1 generate
-    constant c_levels : natural := fn_log2(g_width);
-    signal mask_nodes   : std_logic_vector(2**c_levels-2 downto 0) := (others => '0');
-    signal index_nodes  : t_slv_array(2**c_levels-2 downto 0)(output_index'range) := (others => (others => '0'));
-    signal valid_nodes  : std_logic_vector(2**c_levels-2 downto 0) := (others => '0');
+    constant c_levels : natural := f_log2(g_width);
+    signal mask_nodes   : std_logic_vector(2**c_levels-2 downto 0);
+    signal index_nodes  : t_slv_array(2**c_levels-2 downto 0)(output_index'range);
+    signal valid_nodes  : std_logic_vector(2**c_levels-2 downto 0);
   begin
 
     output_valid <= valid_nodes(0);
@@ -53,6 +53,10 @@ begin
             output_mask(2*j)        <= mask_nodes(c_curr);
             index_nodes(c_curr)(0)  <= '0';
           end generate b_half;
+          b_none : if 2*j > g_width-1 generate
+            valid_nodes(c_curr)     <= '0';
+            index_nodes(c_curr)(0)  <= '0';
+          end generate b_none;
         else generate
           valid_nodes(c_curr) <= or valid_nodes(c_prev+1 downto c_prev);
           sel <= not valid_nodes(c_prev) when g_lsb_prio else not valid_nodes(c_prev+1);

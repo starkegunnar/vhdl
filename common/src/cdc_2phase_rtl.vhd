@@ -1,6 +1,9 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
+library lib_common;
+use lib_common.common_pkg.all;
+
 entity cdc_2phase is
   generic (
     type t_data;

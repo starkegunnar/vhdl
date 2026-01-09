@@ -1,111 +1,306 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
-entity cdc_4phase is
+library lib_common;
+
+entity cdc_4phase_src is
   generic (
-    type t_data;
-    g_src_sync_ff : natural range 2 to 12 := 2;
-    g_dst_sync_ff : natural range 2 to 12 := 2;
-    g_reg_output  : boolean := true
+    DW          : integer;
+    SYNC_FF     : integer range 2 to 15 := 2;
+    SLICE_OUPUT : integer := 1
   );
   port (
     -- Source clock and reset
-    src_clk   : in  std_logic;
+    clk         : in  std_logic;
+    rst_n       : in  std_logic;
     -- Source data and flow control
-    src_data  : in  t_data;
-    src_valid : in  std_logic;
-    src_ready : out std_logic;
+    s_data      : in  std_logic_vector(DW-1 downto 0);
+    s_valid     : in  std_logic;
+    s_ready     : out std_logic;
+    -- To destination
+    async_data  : out std_logic_vector(DW-1 downto 0);
+    async_req   : out std_logic;
+    async_ack   : in  std_logic
+  );
+end entity cdc_4phase_src;
+
+architecture rtl of cdc_4phase_src is
+
+  type t_state is (IDLE, WAIT_ACK_SET, WAIT_ACK_CLEAR);
+
+  type t_reg is record
+    state : t_state;
+    data  : std_logic_vector(DW-1 downto 0);
+    req   : std_logic;
+  end record;
+
+  constant RST : t_reg := (
+    state => IDLE,
+    data  => (others => '0'),
+    req   => '0'
+  );
+
+  signal q, d : t_reg;
+  signal ack : std_logic;
+
+begin
+
+  i_ack_sync : entity lib_common.cdc_sync(rtl)
+    generic map (SYNC_FF => SYNC_FF)
+    port map (clk => clk, rst_n => rst_n, d => async_ack, q => ack);
+
+  p_comb : process(all)
+    variable v      : t_reg;
+    variable ready  : std_logic;
+  begin
+    v := q;
+
+    ready := '0';
+
+    case q.state is
+    when IDLE =>
+      if SLICE_OUPUT /= 0 then
+        ready := '1';
+      end if;
+      if s_valid then
+        v.state := WAIT_ACK_SET;
+        v.data  := s_data;
+        v.req   := '1';
+      end if;
+    when WAIT_ACK_SET =>
+      if ack then
+        v.state := WAIT_ACK_CLEAR;
+        v.req   := '0';
+      end if;
+    when WAIT_ACK_CLEAR =>
+      if not ack then
+        if SLICE_OUPUT = 0 then
+          ready := '1';
+        end if;
+        v.state := IDLE;
+      end if;
+    when others =>
+      v.state := IDLE;
+    end case;
+
+    d <= v;
+
+    s_ready     <= ready;
+    async_data  <= q.data;
+    async_req   <= q.req;
+  end process;
+
+  p_reg : process(clk, rst_n)
+  begin
+    if rst_n = '0' then
+      q <= RST;
+    elsif rising_edge(clk) then
+      q <= d;
+    end if;
+  end process;
+
+end architecture rtl;
+
+library ieee;
+use ieee.std_logic_1164.all;
+
+library lib_common;
+
+entity cdc_4phase_dst is
+  generic (
+    DW          : integer;
+    SYNC_FF     : integer range 2 to 15 := 2;
+    SLICE_OUPUT : integer := 1;
+    RESET_DATA  : integer := 0
+  );
+  port (
     -- Destination clock and reset
-    dst_clk   : in  std_logic;
+    clk         : in  std_logic;
+    rst_n       : in  std_logic;
     -- Destination data and flow control
-    dst_data  : out t_data;
-    dst_valid : out std_logic;
-    dst_ready : in  std_logic
+    m_data      : out std_logic_vector(DW-1 downto 0);
+    m_valid     : out std_logic;
+    m_ready     : in  std_logic;
+    -- From source
+    async_data  : in  std_logic_vector(DW-1 downto 0);
+    async_req   : in  std_logic;
+    async_ack   : out std_logic
+  );
+end entity cdc_4phase_dst;
+
+architecture rtl of cdc_4phase_dst is
+
+  type t_state is (IDLE, WAIT_READY, WAIT_REQ_CLEAR);
+
+  type t_reg is record
+    state : t_state;
+    ack   : std_logic;
+  end record;
+
+  constant RST : t_reg := (
+    state => IDLE,
+    ack   => '0'
+  );
+
+  signal q, d       : t_reg;
+  signal req        : std_logic;
+  signal valid_out  : std_logic;
+  signal ready      : std_logic;
+
+begin
+
+  i_req_sync : entity lib_common.cdc_sync(rtl)
+    generic map (SYNC_FF => SYNC_FF)
+    port map (clk => clk, rst_n => rst_n, d => async_req, q => req);
+
+  p_comb : process(all)
+    variable v      : t_reg;
+    variable valid  : std_logic;
+  begin
+    v := q;
+
+    valid := '0';
+
+    case q.state is
+    when IDLE =>
+      if req then
+        valid := '1';
+        if ready then
+          v.state := WAIT_REQ_CLEAR;
+          v.ack   := '1';
+        else
+          v.state := WAIT_READY;
+        end if;
+      end if;
+    when WAIT_READY =>
+      valid := '1';
+      if ready then
+        v.state := WAIT_REQ_CLEAR;
+        v.ack   := '1';
+      end if;
+    when WAIT_REQ_CLEAR =>
+      if not req then
+        v.state := IDLE;
+        v.ack   := '0';
+      end if;
+    when others =>
+      v.state := IDLE;
+    end case;
+
+    d <= v;
+
+    valid_out <= valid;
+    async_ack <= q.ack;
+  end process;
+
+  p_reg : process(clk, rst_n)
+  begin
+    if rst_n = '0' then
+      q <= RST;
+    elsif rising_edge(clk) then
+      q <= d;
+    end if;
+  end process;
+
+  gen_slice : if SLICE_OUPUT /= 0 generate
+    i_slice : entity lib_common.reg_slice_spill(rtl)
+      generic map (
+        DW          => DW,
+        RESET_DATA  => RESET_DATA,
+        ASYNC_RESET => 1
+      )
+      port map (
+        clk     => clk,
+        rst_n   => rst_n,
+        s_data  => async_data,
+        s_valid => valid_out,
+        s_ready => ready,
+        m_data  => m_data,
+        m_valid => m_valid,
+        m_ready => m_ready
+      );
+  end generate gen_slice;
+
+  no_slice : if SLICE_OUPUT = 0 generate
+    m_data  <= async_data;
+    m_valid <= valid_out;
+    ready   <= m_ready;
+  end generate;
+
+end architecture rtl;
+
+library ieee;
+use ieee.std_logic_1164.all;
+
+library lib_common;
+
+entity cdc_4phase is
+  generic (
+    DW          : integer := 32;
+    SRC_SYNC_FF : integer range 2 to 15 := 2;
+    DST_SYNC_FF : integer range 2 to 15 := SRC_SYNC_FF;
+    SLICE_OUPUT : integer := 1;
+    RESET_DATA  : integer := 0
+  );
+  port (
+    -- Source clock and reset
+    s_clk   : in  std_logic;
+    s_rst_n : in  std_logic;
+    -- Source data and flow control
+    s_data  : in  std_logic_vector(DW-1 downto 0);
+    s_valid : in  std_logic;
+    s_ready : out std_logic;
+    -- Destination clock and reset
+    m_clk   : in  std_logic;
+    m_rst_n : in  std_logic;
+    -- Destination data and flow control
+    m_data  : out std_logic_vector(DW-1 downto 0);
+    m_valid : out std_logic;
+    m_ready : in  std_logic
   );
 end entity cdc_4phase;
 
 architecture rtl of cdc_4phase is
 
-  signal src_req    : std_logic := '0';
-  signal src_ack    : std_logic := '0';
-  signal src_data_r : t_data;
-
-  signal dst_ack    : std_logic := '0';
-  signal dst_req    : std_logic := '0';
+  signal async_data  : std_logic_vector(DW-1 downto 0);
+  signal async_req   : std_logic;
+  signal async_ack   : std_logic;
 
 begin
 
-  -- Ready when req and ack are equal
-  src_ready <= src_req xnor src_ack;
+  i_src : entity lib_common.cdc_4phase_src(rtl)
+    generic map (
+      DW          => DW,
+      SYNC_FF     => SRC_SYNC_FF,
+      SLICE_OUPUT => SLICE_OUPUT
+    )
+    port map (
+      clk         => s_clk,
+      rst_n       => s_rst_n,
+      s_data      => s_data,
+      s_valid     => s_valid,
+      s_ready     => s_ready,
+      async_data  => async_data,
+      async_req   => async_req,
+      async_ack   => async_ack
+    );
 
-  p_src : process(src_clk)
-  begin
-    if rising_edge(src_clk) then
-      if src_valid = '1' and src_ready = '1' then
-        -- Send request when valid and ready are set
-        src_req <= not src_req;
-      end if;
-
-      if src_ready = '1' then
-        -- Sample data
-        src_data_r <= src_data;
-      end if;
-    end if;
-  end process;
-
-  i_cdc_single_req : entity lib_common.cdc_single(rtl)
-  generic map (
-    g_dst_sync_ff => g_dst_sync_ff,
-    g_reg_input   => false,
-    g_init_val    => '0'
-  )
-  port map (
-    src_clk       => src_clk,
-    src_data      => src_req,
-    dst_clk       => dst_clk,
-    dst_data      => dst_req
-  );
-
-  i_cdc_single_ack : entity lib_common.cdc_single(rtl)
-  generic map (
-    g_dst_sync_ff => g_src_sync_ff,
-    g_reg_input   => false,
-    g_init_val    => '0'
-  )
-  port map (
-    src_clk       => dst_clk,
-    src_data      => dst_ack,
-    dst_clk       => src_clk,
-    dst_data      => src_ack
-  );
-
-  b_dst : if g_reg_output generate
-    p_dst : process(dst_clk)
-    begin
-      if rising_edge(dst_clk) then
-        if dst_valid = '0' or dst_ready = '1' then
-          -- Data is valid when when req /= ack
-          dst_valid <= dst_req xor dst_ack;
-          if dst_req /= dst_ack then
-            dst_data  <= src_data_r;
-          end if;
-          -- Set ack equal to req
-          dst_ack <= dst_req;
-        end if;
-      end if;
-    end process;
-  else generate
-    p_dst : process(dst_clk)
-    begin
-      dst_valid <= dst_req xor dst_ack;
-      dst_data  <= src_data_r;
-      if rising_edge(dst_clk) then
-        if dst_ready = '1' then
-          -- Set ack equal to req
-          dst_ack <= dst_req;
-        end if;
-      end if;
-    end process;
-  end generate b_dst;
+  i_dst : entity lib_common.cdc_4phase_dst(rtl)
+    generic map (
+      DW          => DW,
+      SYNC_FF     => DST_SYNC_FF,
+      SLICE_OUPUT => SLICE_OUPUT,
+      RESET_DATA  => RESET_DATA
+    )
+    port map (
+      clk         => m_clk,
+      rst_n       => m_rst_n,
+      m_data      => m_data,
+      m_valid     => m_valid,
+      m_ready     => m_ready,
+      async_data  => async_data,
+      async_req   => async_req,
+      async_ack   => async_ack
+    );
 
 end architecture rtl;

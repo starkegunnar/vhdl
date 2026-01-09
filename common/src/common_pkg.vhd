@@ -48,7 +48,7 @@ package common_pkg is
   --!
   --! @return     Binary logarithm
   --!
-  function fn_log2(n : integer) return integer;
+  function f_log2(n : integer) return integer;
   --!
   --! @brief      Get binary logarithm of value (non-zero result)
   --!
@@ -56,7 +56,7 @@ package common_pkg is
   --!
   --! @return     Binary logarithm or 1 if result is less than 1
   --!
-  function fn_log2nz(n : integer) return integer;
+  function f_log2nz(n : integer) return integer;
   --!
   --! @brief      Check if value is power of two
   --!
@@ -64,7 +64,7 @@ package common_pkg is
   --!
   --! @return     True if value is power of two, False otherwise
   --!
-  function fn_is_pow2(n : integer) return boolean;
+  function f_is_pow2(n : integer) return boolean;
   --!
   --! @brief      Get value rounded to next power of two
   --!
@@ -72,7 +72,7 @@ package common_pkg is
   --!
   --! @return     Value rounded to next power of two
   --!
-  function fn_ceil_pow2(n : integer) return integer;
+  function f_ceil_pow2(n : integer) return integer;
   --!
   --! @brief      Get ceil of integer division
   --!
@@ -81,7 +81,7 @@ package common_pkg is
   --!
   --! @return     Division quotient rounded up
   --!
-  function fn_ceil_div(n, m : integer) return integer;
+  function f_ceil_div(n, m : integer) return integer;
   --!
   --! @brief      Reverse order of elements
   --!
@@ -91,7 +91,7 @@ package common_pkg is
   --!
   --! @return     Division quotient rounded up
   --!
-  function fn_reverse(v : std_logic_vector; size : positive := 1; reverse : boolean := true) return std_logic_vector;
+  function f_reverse(v : std_logic_vector; size : positive := 1; reverse : boolean := true) return std_logic_vector;
   --!
   --! @brief      Convert binary to gray code
   --!
@@ -99,8 +99,8 @@ package common_pkg is
   --!
   --! @return     Gray code representation of binary input
   --!
-  function fn_bin2gray(bin : std_logic_vector) return std_logic_vector;
-  function fn_bin2gray(bin : unsigned) return unsigned;
+  function f_bin2gray(bin : std_logic_vector) return std_logic_vector;
+  function f_bin2gray(bin : unsigned) return unsigned;
   --!
   --! @brief      Convert gray code to binary
   --!
@@ -108,8 +108,8 @@ package common_pkg is
   --!
   --! @return     Binary representation of gray input
   --!
-  function fn_gray2bin(gray : std_logic_vector) return std_logic_vector;
-  function fn_gray2bin(gray : unsigned) return unsigned;
+  function f_gray2bin(gray : std_logic_vector) return std_logic_vector;
+  function f_gray2bin(gray : unsigned) return unsigned;
   --!
   --! @brief      Count number of ones in vector
   --!
@@ -117,22 +117,28 @@ package common_pkg is
   --!
   --! @return     Number of ones in vector v
   --!
-  function fn_count_ones(v : std_logic_vector) return natural;
+  function f_count_ones(v : std_logic_vector) return natural;
 
-  function fn_onehot2bin(v : std_logic_vector; empty_value : integer := -1) return std_logic_vector;
+  function f_onehot2bin(v : std_logic_vector; empty_value : integer := -1) return std_logic_vector;
 
-  function fn_lssb(v : std_logic_vector) return std_logic_vector;
-  function fn_mssb(v : std_logic_vector) return std_logic_vector;
-  function fn_lssb_index(v : std_logic_vector) return integer;
-  function fn_mssb_index(v : std_logic_vector) return integer;
+  function f_lssb(v : std_logic_vector) return std_logic_vector;
+  function f_mssb(v : std_logic_vector) return std_logic_vector;
+  function f_lssb_index(v : std_logic_vector) return integer;
+  function f_mssb_index(v : std_logic_vector) return integer;
   --!
-  function fn_cond(expr : boolean; a, b : std_logic) return std_logic;
-  function fn_cond(expr : boolean; a, b : std_logic_vector) return std_logic_vector;
-  function fn_cond(expr : boolean; a, b : unsigned) return unsigned;
-  function fn_cond(expr : boolean; a, b : signed) return signed;
-  function fn_cond(expr : boolean; a, b : integer) return integer;
-  function fn_cond(expr : boolean; a, b : real) return real;
+  function f_cond(expr : boolean; a, b : std_logic) return std_logic;
+  function f_cond(expr : boolean; a, b : std_logic_vector) return std_logic_vector;
+  function f_cond(expr : boolean; a, b : unsigned) return unsigned;
+  function f_cond(expr : boolean; a, b : signed) return signed;
+  function f_cond(expr : boolean; a, b : integer) return integer;
+  function f_cond(expr : boolean; a, b : real) return real;
 
+  procedure pr_prio_enc(
+    signal req        : in  std_logic_vector;
+    signal gnt        : out std_logic_vector;
+    signal gnt_index  : out std_logic_vector;
+    signal gnt_valid  : out std_logic
+  );
 
   procedure pr_lzc(
     signal din    : in  std_logic_vector;
@@ -145,38 +151,38 @@ end package common_pkg;
 
 package body common_pkg is
 
-  function fn_log2(n : integer) return integer is
+  function f_log2(n : integer) return integer is
   begin
     return integer(ceil(log2(real(n))));
-  end function fn_log2;
+  end function f_log2;
 
-  function fn_log2nz(n : integer) return integer is
+  function f_log2nz(n : integer) return integer is
   begin
-    return maximum(1, fn_log2(n));
-  end function fn_log2nz;
+    return maximum(1, f_log2(n));
+  end function f_log2nz;
 
-  function fn_is_pow2(n : integer) return boolean is
+  function f_is_pow2(n : integer) return boolean is
   begin
-    return 2**fn_log2(n) = n;
-  end function fn_is_pow2;
+    return 2**f_log2(n) = n;
+  end function f_is_pow2;
 
-  function fn_ceil_pow2(n : integer) return integer is
+  function f_ceil_pow2(n : integer) return integer is
   begin
-    return 2**fn_log2(n);
-  end function fn_ceil_pow2;
+    return 2**f_log2(n);
+  end function f_ceil_pow2;
 
-  function fn_ceil_div(n, m : integer) return integer is
+  function f_ceil_div(n, m : integer) return integer is
   begin
     return integer(ceil(real(n)/real(m)));
-  end function fn_ceil_div;
+  end function f_ceil_div;
 
-  function fn_reverse(v : std_logic_vector; size : positive := 1; reverse : boolean := true) return std_logic_vector is
+  function f_reverse(v : std_logic_vector; size : positive := 1; reverse : boolean := true) return std_logic_vector is
     constant c_l : natural := v'length;
     constant c_n : natural := c_l/size;
     variable v_v : std_logic_vector(v'length-1 downto 0);
     variable v_r : std_logic_vector(v'length-1 downto 0);
   begin
-    assert c_l mod size = 0 and (c_l = size or (c_l/size mod 2 = 0)) report "fn_reverse: invalid input";
+    assert c_l mod size = 0 and (c_l = size or (c_l/size mod 2 = 0)) report "f_reverse: invalid input";
     v_v := v;
     if reverse then
       for i in 0 to c_n-1 loop
@@ -186,19 +192,19 @@ package body common_pkg is
       v_r := v_v;
     end if;
     return v_r;
-  end function fn_reverse;
+  end function f_reverse;
 
-  function fn_bin2gray(bin : std_logic_vector) return std_logic_vector is
+  function f_bin2gray(bin : std_logic_vector) return std_logic_vector is
   begin
     return bin xor ('0' & bin(bin'high downto bin'low+1));
-  end function fn_bin2gray;
+  end function f_bin2gray;
 
-  function fn_bin2gray(bin : unsigned) return unsigned is
+  function f_bin2gray(bin : unsigned) return unsigned is
   begin
     return bin xor ('0' & bin(bin'high downto bin'low+1));
-  end function fn_bin2gray;
+  end function f_bin2gray;
 
-  function fn_gray2bin(gray : std_logic_vector) return std_logic_vector is
+  function f_gray2bin(gray : std_logic_vector) return std_logic_vector is
     variable v_bin  : std_logic_vector(gray'high+1 downto gray'low);
   begin
     v_bin(v_bin'high) := '0';
@@ -206,9 +212,9 @@ package body common_pkg is
       v_bin(i) := v_bin(i + 1) xor gray(i);
     end loop;
     return v_bin(gray'range);
-  end function fn_gray2bin;
+  end function f_gray2bin;
 
-  function fn_gray2bin(gray : unsigned) return unsigned is
+  function f_gray2bin(gray : unsigned) return unsigned is
     variable v_bin  : unsigned(gray'high+1 downto gray'low);
   begin
     v_bin(v_bin'high) := '0';
@@ -216,9 +222,9 @@ package body common_pkg is
       v_bin(i) := v_bin(i + 1) xor gray(i);
     end loop;
     return v_bin(gray'range);
-  end function fn_gray2bin;
+  end function f_gray2bin;
 
-  function fn_count_ones(v : std_logic_vector) return natural is
+  function f_count_ones(v : std_logic_vector) return natural is
     variable v_ones : natural range 0 to v'length := 0;
   begin
     for i in v'range loop
@@ -227,16 +233,16 @@ package body common_pkg is
       end if;
     end loop;
     return v_ones;
-  end function fn_count_ones;
+  end function f_count_ones;
 
-  function fn_onehot2bin(v : std_logic_vector; empty_value : integer := -1) return std_logic_vector is
-    variable v_r : unsigned(fn_log2nz(maximum(v'high, empty_value)+1)-1 downto 0);
+  function f_onehot2bin(v : std_logic_vector; empty_value : integer := -1) return std_logic_vector is
+    variable v_r : unsigned(f_log2nz(maximum(v'high, empty_value)+1)-1 downto 0);
   begin
     if empty_value > 0 and v = (v'range => '0') then
       v_r := to_unsigned(empty_value, v_r'length);
     else
-      if fn_count_ones(v) /= 1 and (empty_value < 0 or fn_count_ones(v) > 1) then
-        report "fn_onehot2bin: invalid input vector, not onehot" severity warning;
+      if f_count_ones(v) /= 1 and (empty_value < 0 or f_count_ones(v) > 1) then
+        report "f_onehot2bin: invalid input vector, not onehot" severity warning;
       end if;
       for i in v'range loop
         if v(i) = '1' then
@@ -245,90 +251,167 @@ package body common_pkg is
       end loop;
     end if;
     return std_logic_vector(v_r);
-  end function fn_onehot2bin;
+  end function f_onehot2bin;
 
-  function fn_lssb(v : std_logic_vector) return std_logic_vector is
+  function f_lssb(v : std_logic_vector) return std_logic_vector is
   begin
     return v and std_logic_vector(-signed(v));
-  end function fn_lssb;
+  end function f_lssb;
 
-  function fn_mssb(v : std_logic_vector) return std_logic_vector is
+  function f_mssb(v : std_logic_vector) return std_logic_vector is
   begin
-    return fn_reverse(fn_lssb(fn_reverse(v)));
-  end function fn_mssb;
+    return f_reverse(f_lssb(f_reverse(v)));
+  end function f_mssb;
 
-  function fn_lssb_index(v : std_logic_vector) return integer is
+  function f_lssb_index(v : std_logic_vector) return integer is
   begin
-    return to_integer(unsigned(fn_onehot2bin(fn_lssb(v))));
-  end function fn_lssb_index;
+    return to_integer(unsigned(f_onehot2bin(f_lssb(v))));
+  end function f_lssb_index;
 
-  function fn_mssb_index(v : std_logic_vector) return integer is
+  function f_mssb_index(v : std_logic_vector) return integer is
   begin
-    return to_integer(unsigned(fn_onehot2bin(fn_mssb(v))));
-  end function fn_mssb_index;
+    return to_integer(unsigned(f_onehot2bin(f_mssb(v))));
+  end function f_mssb_index;
 
 
-  function fn_cond(expr : boolean; a, b : std_logic) return std_logic is
-  begin
-    if expr then
-      return a;
-    else
-      return b;
-    end if;
-  end function fn_cond;
-
-  function fn_cond(expr : boolean; a, b : std_logic_vector) return std_logic_vector is
+  function f_cond(expr : boolean; a, b : std_logic) return std_logic is
   begin
     if expr then
       return a;
     else
       return b;
     end if;
-  end function fn_cond;
+  end function f_cond;
 
-  function fn_cond(expr : boolean; a, b : unsigned) return unsigned is
+  function f_cond(expr : boolean; a, b : std_logic_vector) return std_logic_vector is
   begin
     if expr then
       return a;
     else
       return b;
     end if;
-  end function fn_cond;
+  end function f_cond;
 
-  function fn_cond(expr : boolean; a, b : signed) return signed is
+  function f_cond(expr : boolean; a, b : unsigned) return unsigned is
   begin
     if expr then
       return a;
     else
       return b;
     end if;
-  end function fn_cond;
+  end function f_cond;
 
-  function fn_cond(expr : boolean; a, b : integer) return integer is
+  function f_cond(expr : boolean; a, b : signed) return signed is
   begin
     if expr then
       return a;
     else
       return b;
     end if;
-  end function fn_cond;
+  end function f_cond;
 
-  function fn_cond(expr : boolean; a, b : real) return real is
+  function f_cond(expr : boolean; a, b : integer) return integer is
   begin
     if expr then
       return a;
     else
       return b;
     end if;
-  end function fn_cond;
+  end function f_cond;
 
+  function f_cond(expr : boolean; a, b : real) return real is
+  begin
+    if expr then
+      return a;
+    else
+      return b;
+    end if;
+  end function f_cond;
+
+  procedure pr_prio_enc(
+    signal req        : in  std_logic_vector;
+    signal gnt        : out std_logic_vector;
+    signal gnt_index  : out std_logic_vector;
+    signal gnt_valid  : out std_logic
+  ) is
+    constant c_lvls : natural := f_log2(req'length);
+    type t_node is record
+      r : std_logic;
+      g : std_logic;
+      i : std_logic_vector(f_log2nz(req'length)-1 downto 0);
+      s : std_logic;
+    end record;
+    type t_nodes is array(0 to 2**c_lvls-2) of t_node;
+    variable curr   : natural;
+    variable prev   : natural;
+    variable nodes  : t_nodes;
+  begin
+    if req'length > 1 then
+      l_tree_down : for i in c_lvls-1 downto 0 loop
+        l_leaf_down : for j in 2**i-1 downto 0 loop
+          curr := 2**i-1+j;
+          prev := 2**(i+1)+2*j-1;
+          if i = c_lvls-1 then
+            if 2*j < req'length-1 then
+              nodes(curr).r     := or req(2*j+1 downto 2*j);
+              nodes(curr).s     := not req(2*j);
+              nodes(curr).i(0)  := not req(2*j);
+            elsif 2*j = req'length-1 then
+              nodes(curr).r     := req(2*j);
+              nodes(curr).s     := '0';
+              nodes(curr).i(0)  := '0';
+            else
+              nodes(curr).r     := '0';
+              nodes(curr).s     := '0';
+              nodes(curr).i(0)  := '0';
+            end if;
+          else
+            nodes(curr).r := nodes(prev+1).r or nodes(prev).r;
+            nodes(curr).s := not nodes(prev).r;
+            if nodes(curr).s = '1' then
+              nodes(curr).i(c_lvls-i-1 downto 0) := '1' & nodes(prev+1).i(c_lvls-i-2 downto 0);
+            else
+              nodes(curr).i(c_lvls-i-1 downto 0) := '0' & nodes(prev).i(c_lvls-i-2 downto 0);
+            end if;
+          end if;
+        end loop;
+      end loop;
+
+      gnt_valid <= nodes(0).r;
+      gnt_index <= nodes(0).i;
+
+      nodes(0).g := '1';
+
+      l_tree_up : for i in 0 to c_lvls-1 loop
+        l_leaf_up : for j in 0 to 2**i-1 loop
+          curr := 2**i-1+j;
+          prev := 2**(i+1)+2*j-1;
+          if i = c_lvls-1 then
+            if 2*j < req'length-1 then
+              gnt(2*j+1)  <= nodes(curr).g and nodes(curr).s;
+              gnt(2*j)    <= nodes(curr).g and not nodes(curr).s;
+            elsif 2*j = req'length-1 then
+              gnt(2*j)    <= nodes(curr).g;
+            end if;
+          else
+            nodes(prev+1).g := nodes(curr).g and nodes(curr).s;
+            nodes(prev).g   := nodes(curr).g and not nodes(curr).s;
+          end if;
+        end loop;
+      end loop;
+    else
+      gnt       <= req;
+      gnt_index <= "0";
+      gnt_valid <= req(0);
+    end if;
+  end procedure;
 
   procedure pr_lzc(
     signal din    : in  std_logic_vector;
     signal cnt    : out std_logic_vector;
     signal empty  : out std_logic
   ) is
-    constant c_levels   : natural := fn_log2(din'length);
+    constant c_levels   : natural := f_log2(din'length);
     variable cnt_nodes  : t_slv_array(2**c_levels-1 downto 0)(c_levels-1 downto 0) := (others => (others => '0'));
     variable sel_nodes  : std_logic_vector(2**c_levels-1 downto 0) := (others => '0');
     variable idx_nodes  : t_slv_array(din'length-1 downto 0)(c_levels-1 downto 0);

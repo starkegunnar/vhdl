@@ -25,14 +25,14 @@ architecture tb of cdc_bus_tb is
   type t_reg_slices is array (0 to 0) of t_reg_slice;
   type t_slv_array is array (0 to 255) of std_logic_vector(7 downto 0);
 
-  impure function fn_fill_test_data return t_slv_array is
+  impure function f_fill_test_data return t_slv_array is
     variable v_test_data : t_slv_array;
   begin
     for i in v_test_data'range loop
       v_test_data(i) := random(8);
     end loop;
     return v_test_data;
-  end function fn_fill_test_data;
+  end function f_fill_test_data;
 
   constant c_clk_period : time := 10 ns;
 
@@ -51,7 +51,7 @@ begin
   tb_m_clk <= '0' when all_done = (all_done'low to all_done'high => true) else not tb_m_clk after c_clk_period / 3;
   tb_rst <= '1' when all_done = (all_done'low to all_done'high => true) else '0' after 3 * c_clk_period;
 
-  test_data <= fn_fill_test_data;
+  test_data <= f_fill_test_data;
 
   b_gen_ctrl : for i in 0 to 3 generate
 

@@ -28,7 +28,7 @@ architecture rtl of test_mux is
   signal ack          : std_logic_vector(4 downto 0);
   signal grant        : std_logic_vector(4 downto 0);
   signal grant_valid  : std_logic;
-  signal grant_index  : std_logic_vector(fn_log2(5)-1 downto 0);
+  signal grant_index  : std_logic_vector(f_log2(5)-1 downto 0);
 
   signal s_valid_r    : std_logic_vector(4 downto 0) := (others =>'0');
   signal s_data_r     : t_slv_array(4 downto 0)(7 downto 0);

@@ -25,10 +25,10 @@ architecture rtl of cdc_gray is
 
 begin
 
-  src_gray      <= fn_bin2gray(src_bin) when rising_edge(src_clk);
+  src_gray      <= f_bin2gray(src_bin) when rising_edge(src_clk);
 
   dst_gray_sync <= dst_gray_sync(dst_gray_sync'high-1 downto 0) & src_gray when rising_edge(dst_clk);
   dst_gray      <= dst_gray_sync(dst_gray_sync'high);
-  dst_bin       <= fn_gray2bin(dst_gray);
+  dst_bin       <= f_gray2bin(dst_gray);
 
 end architecture rtl;

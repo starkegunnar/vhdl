@@ -25,9 +25,9 @@ end entity muxoh;
 
 architecture rtl of muxoh is
 
-  constant c_bpl  : positive := fn_max(g_lw/2, 1);        -- Buses per LUT
-  constant c_nl   : positive := fn_ceil_div(g_sw, c_bpl); -- Number of LUTs
-  constant c_nc4  : positive := fn_ceil_div(c_nl, 4);     -- Number of CARRY4
+  constant c_bpl  : positive := f_max(g_lw/2, 1);        -- Buses per LUT
+  constant c_nl   : positive := f_ceil_div(g_sw, c_bpl); -- Number of LUTs
+  constant c_nc4  : positive := f_ceil_div(c_nl, 4);     -- Number of CARRY4
   constant c_ones : unsigned(c_nl-1 downto 0) := (others => '1');
 
   -- Signals
@@ -61,7 +61,7 @@ begin
       signal cy : std_logic_vector(c_nl downto 0);
     begin
       b_luts : for j in 0 to c_nl-1 generate
-        constant c_bits     : positive := fn_min(c_bpl, g_sw-j*c_bpl);
+        constant c_bits     : positive := f_min(c_bpl, g_sw-j*c_bpl);
         subtype t_lut_range is natural range j*c_bpl+c_bits-1 downto j*c_bpl;
       begin
         l(j) <= or_reduce(ds(i)(t_lut_range) and sel(i)(t_lut_range));
@@ -69,8 +69,8 @@ begin
 
       b_opt: case g_opt generate
       when opt_xilinx_7series =>
-        b_carry4 : for k in 0 to fn_ceil_div(l'length, 4)-1 generate
-          constant c_bits : positive := fn_min(4, l'length-k*c_bpl);
+        b_carry4 : for k in 0 to f_ceil_div(l'length, 4)-1 generate
+          constant c_bits : positive := f_min(4, l'length-k*c_bpl);
           subtype t_c4_range is natural range k*4+c_bits-1 downto k*4;
           signal ci       : std_logic;
           signal co       : std_logic_vector(3 downto 0) := (others => '0');
@@ -90,8 +90,8 @@ begin
           cy(k*4+c_bits downto k*4+1) <= co(c_bits-1 downto 0);
         end generate b_carry4;
       when opt_xilinx_ultrascale =>
-        b_carry8 : for k in 0 to fn_ceil_div(l'length, 8)-1 generate
-          constant c_bits : positive := fn_min(8, l'length-k*c_bpl);
+        b_carry8 : for k in 0 to f_ceil_div(l'length, 8)-1 generate
+          constant c_bits : positive := f_min(8, l'length-k*c_bpl);
           subtype t_c8_range is natural range k*8+c_bits-1 downto k*8;
           signal ci       : std_logic;
           signal co       : std_logic_vector(7 downto 0) := (others => '0');

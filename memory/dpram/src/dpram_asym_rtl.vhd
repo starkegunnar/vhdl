@@ -46,12 +46,12 @@ architecture rtl of dpram_asym is
   constant c_sza : natural := 2**g_addr_width_a;
   constant c_szb : natural := 2**g_addr_width_b;
 
-  constant c_min_aw : natural := fn_min(c_awa, c_awb);
-  constant c_max_aw : natural := fn_max(c_awa, c_awb);
-  constant c_min_dw : natural := fn_min(c_dwa, c_dwb);
-  constant c_max_dw : natural := fn_max(c_dwa, c_dwb);
-  constant c_min_sz : natural := fn_min(c_sza, c_szb);
-  constant c_max_sz : natural := fn_max(c_sza, c_szb);
+  constant c_min_aw : natural := f_min(c_awa, c_awb);
+  constant c_max_aw : natural := f_max(c_awa, c_awb);
+  constant c_min_dw : natural := f_min(c_dwa, c_dwb);
+  constant c_max_dw : natural := f_max(c_dwa, c_dwb);
+  constant c_min_sz : natural := f_min(c_sza, c_szb);
+  constant c_max_sz : natural := f_max(c_sza, c_szb);
   constant c_ratio  : natural := c_max_dw / c_min_dw;
 
 
@@ -140,10 +140,10 @@ begin
       for i in 0 to c_ratio - 1 loop
         if eny = '1' then
           if wey = '1' then
-            mem(to_integer(unsigned(addry) & to_unsigned(i, fn_log2(c_ratio)))) <= diny((i + 1) * c_min_dw - 1 downto i * c_min_dw);
+            mem(to_integer(unsigned(addry) & to_unsigned(i, f_log2(c_ratio)))) <= diny((i + 1) * c_min_dw - 1 downto i * c_min_dw);
           end if;
           if g_sync_read then
-            douty_r(0)((i + 1) * c_min_dw - 1 downto i * c_min_dw) <= mem(to_integer(unsigned(addry) & to_unsigned(i, fn_log2(c_ratio))));
+            douty_r(0)((i + 1) * c_min_dw - 1 downto i * c_min_dw) <= mem(to_integer(unsigned(addry) & to_unsigned(i, f_log2(c_ratio))));
           end if;
         end if;
       end loop;
@@ -169,7 +169,7 @@ begin
       douty <= douty_r(0);
     else
       for i in 0 to c_ratio - 1 loop
-        douty((i + 1) * c_min_dw - 1 downto i * c_min_dw) <= mem(to_integer(unsigned(addry) & to_unsigned(i, fn_log2(c_ratio))));
+        douty((i + 1) * c_min_dw - 1 downto i * c_min_dw) <= mem(to_integer(unsigned(addry) & to_unsigned(i, f_log2(c_ratio))));
       end loop;
     end if;
   end process;

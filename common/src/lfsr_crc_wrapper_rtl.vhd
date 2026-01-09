@@ -14,7 +14,7 @@ entity lfsr_crc_wrapper is
     rst     : in  std_logic;
     en      : in  std_logic;
     data_in : in  std_logic_vector(g_width-1 downto 0);
-    crc_out : out std_logic_vector(abs(fn_mssb_index(g_polynomial)-g_polynomial'right)-1 downto 0)
+    crc_out : out std_logic_vector(abs(f_mssb_index(g_polynomial)-g_polynomial'right)-1 downto 0)
   );
 end entity lfsr_crc_wrapper;
 
