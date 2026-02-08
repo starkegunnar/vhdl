@@ -18,8 +18,8 @@ end entity stream_tb;
 
 architecture tb of stream_tb is
 
-  constant c_num_std_streams  : natural := 4;
-  constant c_num_arb_streams  : natural := 7;
+  constant c_num_std_streams  : natural := 5;
+  constant c_num_arb_streams  : natural := 3;
   constant c_num_streams      : natural := c_num_std_streams+c_num_arb_streams;
   constant c_num_test_data    : natural := 256;
   constant c_s                : natural := c_num_std_streams;
@@ -71,10 +71,17 @@ begin
 
   p_write : process
     variable v_data : std_logic_vector(7 downto 0) := (others => '0');
+    variable rate   : real;
   begin
     streams_in(i).n       <= i;
     streams_in(i).s_data  <= (others => '0');
     streams_in(i).s_valid <= '0';
+
+    if i < c_num_std_streams then
+      rate := 1.0;
+    else
+      rate := 0.3;
+    end if;
 
     wait until tb_rst = '1';
     wait until rising_edge(tb_clk);
@@ -88,7 +95,7 @@ begin
         streams_in(i).s_ready,
         v_data,
         100 * c_clk_period,
-        1.0);
+        rate);
     end loop;
     wait until rising_edge(tb_clk);
 
@@ -122,8 +129,15 @@ begin
 
   p_read : process
     variable v_data : std_logic_vector(7 downto 0) := (others => '0');
+    variable rate   : real;
   begin
     streams_in(i).m_ready <= '0';
+
+    if i < c_num_std_streams then
+      rate := 1.0;
+    else
+      rate := 0.3;
+    end if;
 
     wait until tb_rst = '1';
     wait until rising_edge(tb_clk);
@@ -136,7 +150,7 @@ begin
         streams_in(i).m_ready,
         v_data,
         100 * c_clk_period,
-        1.0);
+        rate);
       assert v_data = test_data(j) report "Read data mismatch, expected " & to_hstring(test_data(j)) & " got " & to_hstring(v_data) severity warning;
     end loop;
     wait until rising_edge(tb_clk);
@@ -236,6 +250,28 @@ begin
     m_ready => streams_in(3).m_ready
   );
 
+  i_dut_fifo : entity lib_common.fifo(rtl)
+  generic map (
+    DW            => 8,
+    DEPTH         => 32,
+    FWFT          => 1,
+    READ_LATENCY  => 1,
+    COMMON_CLK    => 1,
+    ASYNC_RESET   => 0
+  )
+  port map (
+    wclk      => tb_clk,
+    wrst_n    => tb_rst,
+    wdata     => streams_in(4).s_data,
+    we        => streams_in(4).s_valid,
+    wready    => streams_in(4).s_ready,
+    rclk      => tb_clk,
+    rrst_n    => tb_rst,
+    rdata     => streams_in(4).m_data,
+    ren       => streams_in(4).m_ready,
+    rvalid    => streams_in(4).m_valid
+  );
+
 
 --  i_fifo_srl : entity lib_common.fifo_srl(rtl)
 --  generic map (
@@ -288,18 +324,37 @@ begin
     ack(i) <= streams_in(c_s+i).s_valid and streams_in(c_s+i).s_ready and gnt(i);
   end generate;
 
-  i_arbiter : entity lib_common.arbiter(rtl)
+  --i_arbiter : entity lib_common.arbiter(rtl)
+  --generic map (
+  --  WIDTH  => c_num_arb_streams
+  --)
+  --port map (
+  --  clk         => tb_clk,
+  --  rst_n       => tb_rst,
+  --  req         => req,
+  --  ack         => ack,
+  --  grant       => gnt,
+  --  grant_valid => open,
+  --  grant_index => gnt_index
+  --);
+  i_arbiter_tree : entity lib_common.arbiter_tree(rtl)
   generic map (
-    WIDTH  => c_num_arb_streams
+    N_REQ       => c_num_arb_streams,
+    DW          => 8,
+    ARB_PRIO    => 2,
+    ARB_LOCK    => 1,
+    ASYNC_RESET => 0
   )
   port map (
-    clk         => tb_clk,
-    rst_n       => tb_rst,
-    req         => req,
-    ack         => ack,
-    grant       => gnt,
-    grant_valid => open,
-    grant_index => gnt_index
+    clk       => tb_clk,
+    rst_n     => tb_rst,
+    ext_prio  => (others => '0'),
+    ireq      => req,
+    idata     => (others => (others => '0')),
+    ognt      => gnt,
+    oreq      => open,
+    ignt      => streams_in(c_s+to_integer(unsigned(gnt_index))).m_ready,
+    oidx      => gnt_index
   );
 
   b_gnt : for i in 0 to c_a-1 generate

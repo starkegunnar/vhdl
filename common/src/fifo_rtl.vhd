@@ -5,249 +5,409 @@ use ieee.numeric_std.all;
 library lib_common;
 use lib_common.common_pkg.all;
 
-entity fifo is
+entity fifo_write_ctrl is
   generic (
-    type t_data;
-    g_depth               : positive;
-    g_read_latency        : natural range 0 to 2  := 2;
-    g_prog_full_thresh    : natural               := 0;
-    g_prog_empty_thresh   : natural               := 0;
-    g_common_clock        : boolean;
-    g_s_sync_ff           : natural range 2 to 12 := 2;
-    g_m_sync_ff           : natural range 2 to 12 := 2
-
+    DW          : integer;
+    DEPTH       : integer;
+    COMMON_CLK  : integer range 0 to 1;
+    SYNC_FF     : integer range 2 to 15;
+    ASYNC_RESET : integer range 0 to 1
   );
   port (
-    -- Clock and reset
-    -- Subordinate interface
-    s_clk           : in  std_logic;
-    s_rst           : in  std_logic;
-    s_data          : in  t_data;
-    s_valid         : in  std_logic;
-    s_ready         : out std_logic;
-    s_full          : out std_logic;
-    s_prog_ready    : out std_logic;
-    s_prog_full     : out std_logic;
-    -- Manager interface
-    m_clk           : in  std_logic;
-    m_data          : out t_data;
-    m_valid         : out std_logic;
-    m_empty         : out std_logic;
-    m_prog_valid    : out std_logic;
-    m_prog_empty    : out std_logic;
-    m_ready         : in  std_logic
+    wclk    : in  std_logic;
+    wrst_n  : in  std_logic;
+    we      : in  std_logic;
+    wfull   : out std_logic;
+    wready  : out std_logic;
+    wptr    : out std_logic_vector(f_log2(DEPTH) downto 0);
+    rptr    : in  std_logic_vector(f_log2(DEPTH) downto 0)
+  );
+end entity fifo_write_ctrl;
+
+architecture rtl of fifo_write_ctrl is
+
+  function f_full_mask return std_logic_vector is
+    variable msk : std_logic_vector(f_log2(DEPTH) downto 0);
+  begin
+    msk := std_logic_vector(to_unsigned(2**(f_log2(DEPTH)-1), msk'length));
+    if COMMON_CLK = 0 then
+      msk := msk or std_logic_vector(to_unsigned(2**(f_log2(DEPTH)-2), msk'length));
+    end if;
+    return msk;
+  end function;
+
+  constant CW         : integer := f_log2(DEPTH)+1;
+  constant AW         : integer := CW-1;
+  constant FULL_MASK  : std_logic_vector(CW-1 downto 0) := f_full_mask;
+
+  type t_reg is record
+    full  : std_logic;
+    ready : std_logic;
+  end record;
+
+  signal counters   : t_slv_array(0 to 1)(CW-1 downto 0);
+  signal rptr_sync  : std_logic_vector(CW-1 downto 0);
+  signal q, d       : t_reg;
+
+begin
+
+  gen_counters : for i in 0 to 1 generate
+    gen_counter : if COMMON_CLK /= 0 generate
+      i_counter : entity lib_common.up_down_counter(rtl)
+      generic map (
+        WIDTH       => CW,
+        ASYNC_RESET => ASYNC_RESET,
+        RESET_VAL   => std_logic_vector(to_unsigned(i, CW))
+      )
+      port map (
+        clk   => wclk,
+        rstn  => wrst_n,
+        en    => we,
+        up    => wready,
+        down  => '0',
+        count => counters(i)
+      );
+    end generate gen_counter;
+    gen_gray_counter : if COMMON_CLK = 0 generate
+      i_gray_counter : entity lib_common.gray_counter(rtl)
+      generic map (
+        WIDTH       => CW,
+        ASYNC_RESET => ASYNC_RESET,
+        RESET_VAL   => std_logic_vector(to_unsigned(i, CW))
+      )
+      port map (
+        clk   => wclk,
+        rst_n => wrst_n,
+        clear => '0',
+        en    => we and not wfull,
+        count => counters(i)
+      );
+    end generate gen_gray_counter;
+  end generate gen_counters;
+
+  gen_rptr_sync : if COMMON_CLK = 0 generate
+    i_cdc_sync : entity lib_common.cdc_sync(rtl)
+    generic map (
+      WIDTH     => CW,
+      CDC_TYPE  => "cdc_gray",
+      SYNC_FF   => SYNC_FF
+    )
+    port map (
+      clk => wclk,
+      d   => rptr,
+      q   => rptr_sync
+    );
+  else generate
+    rptr_sync <= rptr;
+  end generate;
+
+  p_comb : process(all)
+    variable v : t_reg;
+    variable full, going_full : std_logic;
+  begin
+    v := q;
+
+    full := '0';
+    going_full := '0';
+
+    if (counters(0) xor rptr_sync) = FULL_MASK then
+      full := '1';
+    end if;
+    if ((COMMON_CLK /= 0 and counters(1)(AW-1 downto 0) = rptr_sync(AW-1 downto 0)) or
+        (COMMON_CLK = 0 and (counters(1) xor rptr_sync) = FULL_MASK)) then
+      going_full := we;
+    end if;
+
+    v.full  := going_full or full;
+    v.ready := going_full nor full;
+
+    if ASYNC_RESET = 0 and wrst_n = '0' then
+      v.full  := '1';
+      v.ready := '0';
+    end if;
+
+    d <= v;
+
+    wfull   <= q.full;
+    wready  <= q.ready;
+    wptr    <= counters(0);
+  end process;
+
+  p_reg : process(wclk, wrst_n)
+  begin
+    if ASYNC_RESET /= 0 and wrst_n = '0' then
+      q.full  <= '1';
+      q.ready <= '0';
+    elsif rising_edge(wclk) then
+      q <= d;
+    end if;
+  end process;
+
+end architecture;
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+library lib_common;
+use lib_common.common_pkg.all;
+
+entity fifo_read_ctrl is
+  generic (
+    DW            : integer;
+    DEPTH         : integer;
+    FWFT          : integer range 0 to 1;
+    READ_LATENCY  : integer range 0 to 1;
+    COMMON_CLK    : integer range 0 to 1;
+    SYNC_FF       : integer range 2 to 15;
+    ASYNC_RESET   : integer range 0 to 1
+  );
+  port (
+    rclk    : in  std_logic;
+    rrst_n  : in  std_logic;
+    ren     : in  std_logic;
+    rempty  : out std_logic;
+    rvalid  : out std_logic;
+    --
+    rptr    : out std_logic_vector(f_log2(DEPTH) downto 0);
+    wptr    : in  std_logic_vector(f_log2(DEPTH) downto 0)
+  );
+end entity fifo_read_ctrl;
+
+architecture rtl of fifo_read_ctrl is
+
+  constant CW : integer := f_log2(DEPTH)+1;
+  constant AW : integer := CW-1;
+
+  type t_reg is record
+    empty : std_logic_vector(0 to 1);
+    valid : std_logic_vector(0 to 1);
+  end record;
+
+  signal counters   : t_slv_array(0 to 1)(CW-1 downto 0);
+  signal wptr_sync  : std_logic_vector(CW-1 downto 0);
+  signal q, d       : t_reg;
+
+begin
+
+  gen_counters : for i in 0 to 1 generate
+    gen_counter : if COMMON_CLK /= 0 generate
+      i_counter : entity lib_common.up_down_counter(rtl)
+      generic map (
+        WIDTH       => CW,
+        ASYNC_RESET => ASYNC_RESET,
+        RESET_VAL   => std_logic_vector(to_unsigned(i, CW))
+      )
+      port map (
+        clk   => rclk,
+        rstn  => rrst_n,
+        en    => ren,
+        up    => q.valid(0),
+        down  => '0',
+        count => counters(i)
+      );
+    end generate gen_counter;
+    gen_gray_counter : if COMMON_CLK = 0 generate
+      i_gray_counter : entity lib_common.gray_counter(rtl)
+      generic map (
+        WIDTH       => CW,
+        ASYNC_RESET => ASYNC_RESET,
+        RESET_VAL   => std_logic_vector(to_unsigned(i, CW))
+      )
+      port map (
+        clk   => rclk,
+        rst_n => rrst_n,
+        clear => '0',
+        en    => ren and not q.empty(0),
+        count => counters(i)
+      );
+    end generate gen_gray_counter;
+  end generate gen_counters;
+
+  gen_wptr_sync : if COMMON_CLK = 0 generate
+    i_cdc_sync : entity lib_common.cdc_sync(rtl)
+    generic map (
+      WIDTH     => CW,
+      CDC_TYPE  => "cdc_gray",
+      SYNC_FF   => SYNC_FF
+    )
+    port map (
+      clk => rclk,
+      d   => wptr,
+      q   => wptr_sync
+    );
+  else generate
+    wptr_sync <= wptr;
+  end generate;
+
+  p_comb : process(all)
+    variable v : t_reg;
+    variable empty, going_empty : std_logic;
+  begin
+    v := q;
+
+    empty := '0';
+    going_empty := '0';
+
+    if counters(0) = wptr_sync then
+      empty := '1';
+    end if;
+    if ((COMMON_CLK = 0 and counters(1)(AW-1 downto 0) = wptr_sync(AW-1 downto 0)) or
+        (COMMON_CLK /= 0 and counters(1) = wptr_sync)) then
+      going_empty := ren;
+    end if;
+
+    v.empty(0)  := going_empty or empty;
+    v.valid(0)  := going_empty nor empty;
+
+    if ren = '1' then
+      v.empty(1)  := q.empty(0);
+      v.valid(1)  := q.valid(0);
+    end if;
+
+    if ASYNC_RESET = 0 and rrst_n = '0' then
+      v.empty := (others => '1');
+      v.valid := (others => '0');
+    end if;
+
+    d <= v;
+
+    if READ_LATENCY = 0 and FWFT = 0 then
+      rempty  <= q.empty(0);
+      rvalid  <= q.valid(0);
+    else
+      rempty  <= q.empty(1);
+      rvalid  <= q.valid(1);
+    end if;
+
+    rptr <= counters(0);
+  end process;
+
+  p_reg : process(rclk, rrst_n)
+  begin
+    if ASYNC_RESET /= 0 and rrst_n = '0' then
+      q.empty <= (others => '1');
+      q.valid <= (others => '0');
+    elsif rising_edge(rclk) then
+      q <= d;
+    end if;
+  end process;
+
+end architecture;
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+library lib_common;
+use lib_common.common_pkg.all;
+
+entity fifo is
+  generic (
+    DW            : integer := 32;
+    DEPTH         : integer := 512;
+    FWFT          : integer range 0 to 1 := 1;
+    READ_LATENCY  : integer range 0 to 1 := 1;
+    COMMON_CLK    : integer range 0 to 1 := 1;
+    SYNC_FF       : integer range 2 to 15 := 2;
+    ASYNC_RESET   : integer range 0 to 1 := 0
+  );
+  port (
+    wclk    : in  std_logic;
+    wrst_n  : in  std_logic;
+    wdata   : in  std_logic_vector(DW-1 downto 0);
+    we      : in  std_logic;
+    wfull   : out std_logic;
+    wready  : out std_logic;
+    rclk    : in  std_logic;
+    rrst_n  : in  std_logic;
+    rdata   : out std_logic_vector(DW-1 downto 0);
+    ren     : in  std_logic;
+    rempty  : out std_logic;
+    rvalid  : out std_logic
   );
 end entity fifo;
 
 architecture rtl of fifo is
 
-  constant c_aw       : natural := f_log2(g_depth);
-  constant c_cw       : natural := c_aw+1;
-  constant c_depth    : natural := f_ceil_pow2(g_depth);
+  constant CW : integer := f_log2(DEPTH)+1;
+  constant AW : integer := CW-1;
 
-  type t_data_array is array(natural range <>) of t_data;
+  signal wptr, rptr   : std_logic_vector(CW-1 downto 0);
+  signal waddr, raddr : std_logic_vector(AW-1 downto 0);
 
-  signal s_clk_int, m_clk_int : std_logic;
-  signal s_rst_int, m_rst_int : std_logic;
-
-  signal mem                  : t_data_array(0 to c_depth);
-  signal waddr, raddr         : std_logic_vector(c_aw-1 downto 0);
-  signal s_wcount, s_rcount   : std_logic_vector(c_cw-1 downto 0);
-  signal m_wcount, m_rcount   : std_logic_vector(c_cw-1 downto 0);
-  signal wcount_p1, rcount_p1 : std_logic_vector(c_aw-1 downto 0);
-
-  signal empty, going_empty   : std_logic;
-  signal full, going_full     : std_logic;
-
-  signal rdata                : t_data_array(2 downto 0);
-  signal rdata_valid          : std_logic_vector(2 downto 0);
-  signal rdata_empty          : std_logic_vector(2 downto 0);
-  signal rdata_prog_valid     : std_logic_vector(2 downto 0);
-  signal rdata_prog_empty     : std_logic_vector(2 downto 0);
-  signal rdata_ready          : std_logic_vector(2 downto 0);
+  signal rclk_int     : std_logic;
+  signal rrst_n_int   : std_logic;
+  signal ren_int      : std_logic;
 
 begin
 
-  s_clk_int <= s_clk;
-  m_clk_int <= s_clk when g_common_clock else m_clk;
-
-  i_wcount : entity lib_common.up_down_counter(rtl)
+  i_write_ctrl : entity lib_common.fifo_write_ctrl(rtl)
   generic map (
-    g_counter_width => c_cw,
-    g_reset_value   => (others => '0')
+    DW          => DW,
+    DEPTH       => DEPTH,
+    COMMON_CLK  => COMMON_CLK,
+    SYNC_FF     => SYNC_FF,
+    ASYNC_RESET => ASYNC_RESET
   )
   port map (
-    clk   => s_clk_int,
-    rst   => s_rst_int,
-    en    => s_valid,
-    up    => s_ready,
-    down  => '0',
-    count => s_wcount
+    wclk    => wclk,
+    wrst_n  => wrst_n,
+    we      => we,
+    wfull   => wfull,
+    wready  => wready,
+    wptr    => wptr,
+    rptr    => rptr
   );
 
-  waddr <= s_wcount(c_aw-1 downto 0);
+  waddr <= f_gray2bin(wptr)(AW-1 downto 0) when COMMON_CLK = 0 else
+           wptr(AW-1 downto 0);
+  raddr <= f_gray2bin(rptr)(AW-1 downto 0) when COMMON_CLK = 0 else
+           rptr(AW-1 downto 0);
 
-  i_wcount_p1 : entity lib_common.up_down_counter(rtl)
+  i_sdpram : entity lib_common.sdpram(rtl)
   generic map (
-    g_counter_width => c_aw,
-    g_reset_value   => std_logic_vector(to_unsigned(1, c_aw))
+    AW            => AW,
+    DEPTH         => DEPTH,
+    DW            => DW,
+    COMMON_CLK    => COMMON_CLK,
+    READ_LATENCY  => READ_LATENCY
   )
   port map (
-    clk   => s_clk_int,
-    rst   => s_rst_int,
-    en    => s_valid,
-    up    => s_ready,
-    down  => '0',
-    count => wcount_p1
+    wclk  => wclk,
+    waddr => waddr,
+    we    => we and not wfull,
+    wdata => wdata,
+    rclk  => rclk,
+    raddr => raddr,
+    rden  => ren_int,
+    rdata => rdata
   );
 
-  full        <= '1' when s_wcount = (not s_rcount(c_aw) & s_rcount(c_aw-1 downto 0)) else '0';
-  going_full  <= s_valid when wcount_p1 = s_rcount(c_aw-1 downto 0) else '0';
+  rclk_int    <= wclk when COMMON_CLK = 0 else rclk;
+  rrst_n_int  <= wrst_n when COMMON_CLK = 0 else rrst_n;
 
-  p_write : process(s_clk_int)
-  begin
-    if rising_edge(s_clk_int) then
-      s_ready <= going_full nor full;
-      s_full  <= going_full or full;
-
-      if s_ready = '1' then
-        mem(to_integer(unsigned(waddr))) <= s_data;
-      end if;
-
-      if s_rst_int = '1' then
-        s_ready <= '0';
-        s_full  <= '1';
-      end if;
-    end if;
-  end process;
-
-  b_counters : if not g_common_clock generate
-    signal s_rcount_comb, m_wcount_comb : std_logic_vector(c_cw-1 downto 0) := (others => '0');
-  begin
-    i_s2m_gray : entity lib_common.cdc_gray(rtl)
-    generic map (
-      g_width       => c_cw,
-      g_dst_sync_ff => g_m_sync_ff
-    )
-    port map (
-      src_clk => s_clk_int,
-      src_bin => s_wcount,
-      dst_clk => m_clk_int,
-      dst_bin => m_wcount_comb
-    );
-
-    p_m_wcount : process(m_clk_int)
-    begin
-      if rising_edge(m_clk_int) then
-        if m_rst_int = '1' then
-          m_wcount <= (others => '0');
-        else
-          m_wcount <= m_wcount_comb;
-        end if;
-      end if;
-    end process;
-
-    i_m2s_gray : entity lib_common.cdc_gray(rtl)
-    generic map (
-      g_width       => c_cw,
-      g_dst_sync_ff => g_s_sync_ff
-    )
-    port map (
-      src_clk => m_clk_int_clk_int,
-      src_bin => m_rcount,
-      dst_clk => s_clk_int,
-      dst_bin => s_rcount_comb
-    );
-
-    p_s_rcount : process(s_clk_int)
-    begin
-      if rising_edge(s_clk_int) then
-        if s_rst_int = '1' then
-          s_rcount <= (others => '0');
-        else
-          s_rcount <= s_rcount_comb;
-        end if;
-      end if;
-    end process;w
-
-  else generate
-
-    s_rcount  <= m_rcount;
-    m_wcount  <= s_wcount;
-    s_rst_int <= s_rst;
-    m_rst_int <= s_rst;
-
-  end generate b_counters;
-
-  i_rcount : entity lib_common.up_down_counter(rtl)
+  i_read_ctrl : entity lib_common.fifo_read_ctrl(rtl)
   generic map (
-    g_counter_width => c_cw,
-    g_reset_value   => (others => '0')
+    DW            => DW,
+    DEPTH         => DEPTH,
+    FWFT          => FWFT,
+    READ_LATENCY  => READ_LATENCY,
+    COMMON_CLK    => COMMON_CLK,
+    SYNC_FF       => SYNC_FF,
+    ASYNC_RESET   => ASYNC_RESET
   )
   port map (
-    clk   => m_clk_int,
-    rst   => m_rst_int,
-    en    => rdata_ready(0),
-    up    => rdata_valid(0),
-    down  => '0',
-    count => rcount
+    rclk    => rclk,
+    rrst_n  => rrst_n,
+    ren     => ren_int,
+    rempty  => rempty,
+    rvalid  => rvalid,
+    rptr    => rptr,
+    wptr    => wptr
   );
 
-  raddr <= rcount(c_aw-1 downto 0);
+  ren_int <= not rvalid or ren when READ_LATENCY /= 0 and FWFT /= 0 else ren;
 
-  i_rcount_p1 : entity lib_common.up_down_counter(rtl)
-  generic map (
-    g_counter_width => c_aw,
-    g_reset_value   => std_logic_vector(to_unsigned(1, c_aw))
-  )
-  port map (
-    clk   => m_clk_int,
-    rst   => m_rst_int,
-    en    => rdata_ready(0),
-    up    => rdata_valid(0),
-    down  => '0',
-    count => rcount_p1
-  );
+end architecture;
 
-  empty       <= '1' when rcount = wcount else '0';
-  going_empty <= rdata_ready(0) when rcount_p1 = wcount(c_aw-1 downto 0) else '0';
-
-  rdata(0) <= mem(to_integer(unsigned(raddr)));
-  rdata_ready(0) <= m_ready when g_read_latency = 0 else
-                    rdata_empty(1) or m_ready when g_read_latency = 1 else
-                    or rdata_empty(2 downto 1) or m_ready;
-  rdata_ready(1) <= m_ready when g_read_latency = 1 else
-                    not rdata_empty(2) or m_ready when g_read_latency = 2 else
-                    '0';
-  rdata_ready(2) <= m_ready when g_read_latency = 2 else '0';
-
-  p_read : process(m_clk_int)
-  begin
-    if rising_edge(m_clk_int) then
-      rdata_valid(0)  <= going_empty nor empty;
-      rdata_empty(0)  <= going_empty or empty;
-
-      if rdata_ready(1) = '1' then
-        rdata(1)        <= rdata(0);
-        rdata_valid(1)  <= rdata_valid(0);
-        rdata_empty(1)  <= rdata_empty(0);
-      end if;
-
-      if rdata_ready(2) = '1' then
-        rdata(2)        <= rdata(1);
-        rdata_valid(2)  <= rdata_valid(1);
-        rdata_empty(2)  <= rdata_empty(1);
-      end if;
-
-      if m_rst_int = '1' then
-        rdata_valid <= (others => '0');
-        rdata_empty <= (others => '1');
-      end if;
-    end if;
-  end process;
-
-  m_data  <= rdata(g_read_latency);
-  m_valid <= rdata_valid(g_read_latency);
-  m_empty <= rdata_empty(g_read_latency);
-
-end architecture rtl;

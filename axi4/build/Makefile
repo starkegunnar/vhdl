@@ -12,6 +12,9 @@ COMPONENTS = \
 
 SOURCES_VHDL = \
 	$(COMPONENT_DIR)/src/axi4_pkg.vhd \
+	$(COMPONENT_DIR)/src/axi4_slice_rtl.vhd \
+	$(COMPONENT_DIR)/src/axi4_demux_rtl.vhd \
+	$(COMPONENT_DIR)/src/axi4_mux_rtl.vhd \
 
 SOURCES_TB = \
 	$(COMPONENT_DIR)/test/axi4_tb.vhd \

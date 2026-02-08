@@ -27,10 +27,10 @@ package common_pkg is
   --! Register slice type
   --!
   type t_reg_slice_type is (
+    e_reg_slice_none,
     e_reg_slice_full,
-    e_reg_slice_fallthrough,
-    e_reg_slice_srl,
-    e_reg_slice_passthrough
+    e_reg_slice_pipe,
+    e_reg_slice_spill
   );
 
   --! RAM read mode
@@ -40,6 +40,9 @@ package common_pkg is
     e_ram_write_first,
     e_ram_no_change
   );
+  constant RAM_READ_FIRST   : integer := 0;
+  constant RAM_WRITE_FIRST  : integer := 1;
+  constant RAM_NO_CHANGE    : integer := 2;
 
   --!
   --! @brief      Get binary logarithm of value
@@ -133,11 +136,15 @@ package common_pkg is
   function f_cond(expr : boolean; a, b : integer) return integer;
   function f_cond(expr : boolean; a, b : real) return real;
 
+  function f_ctz(op : std_logic_vector) return std_logic_vector;
+  function f_clz(op : std_logic_vector) return std_logic_vector;
+
   procedure pr_prio_enc(
-    signal req        : in  std_logic_vector;
-    signal gnt        : out std_logic_vector;
-    signal gnt_index  : out std_logic_vector;
-    signal gnt_valid  : out std_logic
+    req       : in  std_logic_vector;
+    gnt_in    : in  std_logic;
+    gnt_out   : out std_logic_vector;
+    gnt_index : out std_logic_vector;
+    gnt_valid : out std_logic
   );
 
   procedure pr_lzc(
@@ -182,7 +189,7 @@ package body common_pkg is
     variable v_v : std_logic_vector(v'length-1 downto 0);
     variable v_r : std_logic_vector(v'length-1 downto 0);
   begin
-    assert c_l mod size = 0 and (c_l = size or (c_l/size mod 2 = 0)) report "f_reverse: invalid input";
+    assert (c_l mod size) = 0 and (size = 1 or c_l = size or (c_l/size mod 2 = 0)) report "f_reverse: invalid input";
     v_v := v;
     if reverse then
       for i in 0 to c_n-1 loop
@@ -328,11 +335,38 @@ package body common_pkg is
     end if;
   end function f_cond;
 
+  function f_ctz(
+    op : std_logic_vector
+  ) return std_logic_vector is
+    constant c_w  : natural := f_ceil_pow2(op'length);
+    constant c_h  : natural := c_w/2;
+    variable v_op : std_logic_vector(c_w-1 downto 0) := (others => '0');
+  begin
+    v_op(op'length-1 downto 0) := op;
+    if c_h = 1 then
+      return not v_op(0 downto 0);
+    else
+      if or v_op(c_h-1 downto 0) = '1' then
+        return '0' & f_ctz(v_op(c_h-1 downto 0));
+      else
+        return '1' & f_ctz(v_op(v_op'high downto c_h));
+      end if;
+    end if;
+  end function f_ctz;
+
+  function f_clz(
+    op : std_logic_vector
+  ) return std_logic_vector is
+  begin
+    return f_ctz(f_reverse(op));
+  end function;
+
   procedure pr_prio_enc(
-    signal req        : in  std_logic_vector;
-    signal gnt        : out std_logic_vector;
-    signal gnt_index  : out std_logic_vector;
-    signal gnt_valid  : out std_logic
+    req       : in  std_logic_vector;
+    gnt_in    : in  std_logic;
+    gnt_out   : out std_logic_vector;
+    gnt_index : out std_logic_vector;
+    gnt_valid : out std_logic
   ) is
     constant c_lvls : natural := f_log2(req'length);
     type t_node is record
@@ -377,10 +411,10 @@ package body common_pkg is
         end loop;
       end loop;
 
-      gnt_valid <= nodes(0).r;
-      gnt_index <= nodes(0).i;
+      gnt_valid := nodes(0).r;
+      gnt_index := nodes(0).i;
 
-      nodes(0).g := '1';
+      nodes(0).g := gnt_in;
 
       l_tree_up : for i in 0 to c_lvls-1 loop
         l_leaf_up : for j in 0 to 2**i-1 loop
@@ -388,10 +422,10 @@ package body common_pkg is
           prev := 2**(i+1)+2*j-1;
           if i = c_lvls-1 then
             if 2*j < req'length-1 then
-              gnt(2*j+1)  <= nodes(curr).g and nodes(curr).s;
-              gnt(2*j)    <= nodes(curr).g and not nodes(curr).s;
+              gnt_out(2*j+1)  := nodes(curr).g and nodes(curr).s;
+              gnt_out(2*j)    := nodes(curr).g and not nodes(curr).s;
             elsif 2*j = req'length-1 then
-              gnt(2*j)    <= nodes(curr).g;
+              gnt_out(2*j)    := nodes(curr).g;
             end if;
           else
             nodes(prev+1).g := nodes(curr).g and nodes(curr).s;
@@ -400,9 +434,9 @@ package body common_pkg is
         end loop;
       end loop;
     else
-      gnt       <= req;
-      gnt_index <= "0";
-      gnt_valid <= req(0);
+      gnt_out   := req;
+      gnt_index := "0";
+      gnt_valid := req(0);
     end if;
   end procedure;
 

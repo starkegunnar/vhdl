@@ -96,6 +96,9 @@ package axi4_pkg is
   constant AXRESP_SLVERR      : t_axresp := "10";
   constant AXRESP_DECERR      : t_axresp := "11";
 
+  type t_axi_ax_signals is (AxID, AxADDR, AxLEN, AxSIZE, AxBURST, AxLOCK,
+                            AxCACHE, AxPROT, AxQOS, AxREGION, AxUSER);
+
   type t_axi_ax is record
     id      : std_logic_vector;
     addr    : std_logic_vector;
@@ -110,13 +113,15 @@ package axi4_pkg is
     user    : std_logic_vector;
   end record;
 
+  type t_axi_ax_array is array(natural range <>) of t_axi_ax;
+
   -- Signal   Source    Description
   -- WDATA    Master    Write data.
   -- WSTRB    Master    Write strobes, indicate which byte lanes hold valid data.
   -- WLAST    Master    Indicates whether this is the last data transfer in a write transaction.
   -- WUSER    Master    User-defined extension for the write data channel.
 
-  type t_w_signals is (WDATA, WSTRB, WLAST, WUSER);
+  type t_axi_w_signals is (WDATA, WSTRB, WLAST, WUSER);
 
   type t_axi_w is record
     data    : std_logic_vector;
@@ -125,18 +130,22 @@ package axi4_pkg is
     user    : std_logic_vector;
   end record;
 
+  type t_axi_w_array is array(natural range <>) of t_axi_w;
+
   -- Signal   Source    Description
   -- BID      Slave     Identification tag for a write response.
   -- BRESP    Slave     Write response, indicates the status of a write transaction.
   -- BUSER    Slave     User-defined extension for the write response channel.
 
-  type t_b_signals is (BID, BRESP, BUSER);
+  type t_axi_b_signals is (BID, BRESP, BUSER);
 
   type t_axi_b is record
     id      : std_logic_vector;
     resp    : t_axresp;
     user    : std_logic_vector;
   end record;
+
+  type t_axi_b_array is array(natural range <>) of t_axi_b;
 
   -- Signal   Source    Description
   -- RID      Slave     Identification tag for read data and response.
@@ -145,7 +154,7 @@ package axi4_pkg is
   -- RLAST    Slave     Indicates whether this is the last data transfer in a read transaction.
   -- RUSER    Slave     User-defined extension for the read data channel.
 
-  type t_r_signals is (RID, RDATA, RRESP, RLAST, RUSER);
+  type t_axi_r_signals is (RID, RDATA, RRESP, RLAST, RUSER);
 
   type t_axi_r is record
     id      : std_logic_vector;
@@ -153,6 +162,28 @@ package axi4_pkg is
     resp    : t_axresp;
     last    : std_logic;
     user    : std_logic_vector;
+  end record;
+
+  type t_axi_r_array is array(natural range <>) of t_axi_r;
+
+  type t_axi_mosi is record
+    aw      : t_axi_ax;
+    awvalid : std_logic;
+    w       : t_axi_w;
+    wvalid  : std_logic;
+    bready  : std_logic;
+    ar      : t_axi_ax;
+    arvalid : std_logic;
+    rready  : std_logic;
+  end record;
+
+  type t_axi_miso is record
+    awready : std_logic;
+    wready  : std_logic;
+    b       : t_axi_b;
+    bvalid  : std_logic;
+    r       : t_axi_r;
+    rvalid  : std_logic;
   end record;
 
   type t_axi is record
@@ -190,28 +221,33 @@ package axi4_pkg is
     r       : t_axil_r;
   end record;
 
-  function f_axi_ax_width(ax : t_axi_ax) return natural;
-  function f_axi_w_width(w : t_axi_w) return natural;
-  function f_axi_b_width(b : t_axi_b) return natural;
-  function f_axi_r_width(r : t_axi_r) return natural;
-  function f_axi_width(a : t_axi) return natural;
+  function f_axi_ax_width(IDW, AW, UW : integer) return integer;
+  function f_axi_ax_width(ax : t_axi_ax) return integer;
+  function f_axi_w_width(DW, UW : integer) return integer;
+  function f_axi_w_width(w : t_axi_w) return integer;
+  function f_axi_b_width(IDW, UW : integer) return integer;
+  function f_axi_b_width(b : t_axi_b) return integer;
+  function f_axi_r_width(IDW, DW, UW : integer) return integer;
+  function f_axi_r_width(r : t_axi_r) return integer;
 
   function f_axi_ax_serialize(ax : t_axi_ax) return std_logic_vector;
   function f_axi_w_serialize(w : t_axi_w) return std_logic_vector;
   function f_axi_b_serialize(b : t_axi_b) return std_logic_vector;
   function f_axi_r_serialize(r : t_axi_r) return std_logic_vector;
-  function f_axi_serialize(a : t_axi) return std_logic_vector;
 
-  function f_axi_ax_deserialize(v : std_logic_vector; IDW, AW, UW : natural) return t_axi_ax;
-  function f_axi_w_deserialize(v : std_logic_vector; DW, UW : natural) return t_axi_w;
-  function f_axi_b_deserialize(v : std_logic_vector; IDW, UW : natural) return t_axi_b;
-  function f_axi_r_deserialize(v : std_logic_vector; IDW, DW, UW : natural) return t_axi_r;
-  function f_axi_deserialize(
-    v : std_logic_vector;
-    IDW, AW, DW,
-    AWUW, WUW, BUW,
-    ARUW, RUW : natural
-  ) return t_axi;
+  function f_axi_ax_serialize(ax : t_axi_ax_array) return t_slv_array;
+  function f_axi_w_serialize(w : t_axi_w_array) return t_slv_array;
+  function f_axi_b_serialize(b : t_axi_b_array) return t_slv_array;
+  function f_axi_r_serialize(r : t_axi_r_array) return t_slv_array;
+
+  function f_axi_ax_deserialize(v : std_logic_vector; IDW, AW, UW : integer) return t_axi_ax;
+  function f_axi_w_deserialize(v : std_logic_vector; DW, UW : integer) return t_axi_w;
+  function f_axi_b_deserialize(v : std_logic_vector; IDW, UW : integer) return t_axi_b;
+  function f_axi_r_deserialize(v : std_logic_vector; IDW, DW, UW : integer) return t_axi_r;
+
+  function f_axi_axid_resize(ax : t_axi_ax; idw : integer) return t_axi_ax;
+  function f_axi_bid_resize(b : t_axi_b; idw : integer) return t_axi_b;
+  function f_axi_rid_resize(r : t_axi_r; idw : integer) return t_axi_r;
 
   function f_axi_axaddr_incr(size : t_axsize) return unsigned;
 
@@ -226,39 +262,107 @@ package axi4_pkg is
 
   function f_axi_wstrb(addr : std_logic_vector; size : t_axsize; DW : positive) return std_logic_vector;
 
+  component axi4_slice_rtl is
+    generic (
+      AW            : natural;
+      DW            : natural;
+      IDW           : natural := 0;
+      AWUW          : natural := 0;
+      WUW           : natural := 0;
+      BUW           : natural := 0;
+      ARUW          : natural := 0;
+      RUW           : natural := 0;
+      RESET_DATA    : integer := 0;
+      ASYNC_RESET   : integer := 0;
+      BYPASS        : integer := 0;
+      AW_SLICE_TYPE : t_reg_slice_type := e_reg_slice_full;
+      W_SLICE_TYPE  : t_reg_slice_type := e_reg_slice_full;
+      B_SLICE_TYPE  : t_reg_slice_type := e_reg_slice_full;
+      AR_SLICE_TYPE : t_reg_slice_type := e_reg_slice_full;
+      R_SLICE_TYPE  : t_reg_slice_type := e_reg_slice_full
+    );
+    port (
+      aclk          : in  std_logic;
+      aresetn       : in  std_logic;
+
+      s_axi_aw      : in  t_axi_ax(id(IDW-1 downto 0), addr(AW-1 downto 0), user(AWUW-1 downto 0));
+      s_axi_awvalid : in  std_logic;
+      s_axi_awready : out std_logic;
+      s_axi_w       : in  t_axi_w(data(DW-1 downto 0), strb(DW/8-1 downto 0), user(WUW-1 downto 0));
+      s_axi_wvalid  : in  std_logic;
+      s_axi_wready  : out std_logic;
+      s_axi_b       : out t_axi_b(id(IDW-1 downto 0), user(BUW-1 downto 0));
+      s_axi_bvalid  : out std_logic;
+      s_axi_bready  : in  std_logic;
+      s_axi_ar      : in  t_axi_ax(id(IDW-1 downto 0), addr(AW-1 downto 0), user(ARUW-1 downto 0));
+      s_axi_arvalid : in  std_logic;
+      s_axi_arready : out std_logic;
+      s_axi_r       : out t_axi_r(id(IDW-1 downto 0), data(DW-1 downto 0), user(RUW-1 downto 0));
+      s_axi_rvalid  : out std_logic;
+      s_axi_rready  : in  std_logic;
+
+      m_axi_aw      : out t_axi_ax(id(IDW-1 downto 0), addr(AW-1 downto 0), user(AWUW-1 downto 0));
+      m_axi_awvalid : out std_logic;
+      m_axi_awready : in  std_logic;
+      m_axi_w       : out t_axi_w(data(DW-1 downto 0), strb(DW/8-1 downto 0), user(WUW-1 downto 0));
+      m_axi_wvalid  : out std_logic;
+      m_axi_wready  : in  std_logic;
+      m_axi_b       : in  t_axi_b(id(IDW-1 downto 0), user(BUW-1 downto 0));
+      m_axi_bvalid  : in  std_logic;
+      m_axi_bready  : out std_logic;
+      m_axi_ar      : out t_axi_ax(id(IDW-1 downto 0), addr(AW-1 downto 0), user(ARUW-1 downto 0));
+      m_axi_arvalid : out std_logic;
+      m_axi_arready : in  std_logic;
+      m_axi_r       : in  t_axi_r(id(IDW-1 downto 0), data(DW-1 downto 0), user(RUW-1 downto 0));
+      m_axi_rvalid  : in  std_logic;
+      m_axi_rready  : out std_logic
+    );
+  end component;
+
 end package axi4_pkg;
 
 package body axi4_pkg is
 
-  function f_axi_ax_width(ax : t_axi_ax) return natural is
+  function f_axi_ax_width(IDW, AW, UW : integer) return integer is
+  begin
+    return IDW + AW + 8 + 3 + 2 + 1 + 4 + 3 + 4 + 4 + UW;
+  end function;
+
+  function f_axi_ax_width(ax : t_axi_ax) return integer is
   begin
     return ax.id'length + ax.addr'length + ax.len'length + ax.size'length +
            ax.burst'length + 1 + ax.cache'length + ax.prot'length +
            ax.qos'length + ax.region'length + ax.user'length;
   end function;
 
-  function f_axi_w_width(w : t_axi_w) return natural is
+  function f_axi_w_width(DW, UW : integer) return integer is
+  begin
+    return DW + DW/8 + 1 + UW;
+  end function;
+
+  function f_axi_w_width(w : t_axi_w) return integer is
   begin
     return w.data'length + w.strb'length + 1 + w.user'length;
   end function;
 
-  function f_axi_b_width(b : t_axi_b) return natural is
+  function f_axi_b_width(IDW, UW : integer) return integer is
+  begin
+    return IDW + 2 + UW;
+  end function;
+
+  function f_axi_b_width(b : t_axi_b) return integer is
   begin
     return b.id'length + b.resp'length + b.user'length;
   end function;
 
-  function f_axi_r_width(r : t_axi_r) return natural is
+  function f_axi_r_width(IDW, DW, UW : integer) return integer is
   begin
-    return r.id'length + r.data'length + r.resp'length + 1 + r.user'length;
+    return IDW + DW + 2 + 1 + UW;
   end function;
 
-  function f_axi_width(a : t_axi) return natural is
+  function f_axi_r_width(r : t_axi_r) return integer is
   begin
-    return f_axi_ax_width(a.aw) +
-           f_axi_w_width(a.w) +
-           f_axi_b_width(a.b) +
-           f_axi_ax_width(a.ar) +
-           f_axi_r_width(a.r);
+    return r.id'length + r.data'length + r.resp'length + 1 + r.user'length;
   end function;
 
   function f_axi_ax_serialize(ax : t_axi_ax) return std_logic_vector is
@@ -290,18 +394,44 @@ package body axi4_pkg is
     return v;
   end function;
 
-  function f_axi_serialize(a : t_axi) return std_logic_vector is
-    variable v : std_logic_vector(f_axi_width(a)-1 downto 0);
+  function f_axi_ax_serialize(ax : t_axi_ax_array) return t_slv_array is
+    variable v : t_slv_array(ax'range)(f_axi_ax_width(ax(ax'low))-1 downto 0);
   begin
-    v := f_axi_ax_serialize(a.aw) &
-         f_axi_w_serialize(a.w) &
-         f_axi_b_serialize(a.b) &
-         f_axi_ax_serialize(a.ar) &
-         f_axi_r_serialize(a.r);
+    for i in v'range loop
+      v(i) := f_axi_ax_serialize(ax(i));
+    end loop;
     return v;
   end function;
 
-  function f_axi_ax_deserialize(v : std_logic_vector; IDW, AW, UW : natural) return t_axi_ax is
+  function f_axi_w_serialize(w : t_axi_w_array) return t_slv_array is
+    variable v : t_slv_array(w'range)(f_axi_w_width(w(w'low))-1 downto 0);
+  begin
+    for i in v'range loop
+      v(i) := f_axi_w_serialize(w(i));
+    end loop;
+    return v;
+  end function;
+
+  function f_axi_b_serialize(b : t_axi_b_array) return t_slv_array is
+    variable v : t_slv_array(b'range)(f_axi_b_width(b(b'low))-1 downto 0);
+  begin
+    for i in v'range loop
+      v(i) := f_axi_b_serialize(b(i));
+    end loop;
+    return v;
+  end function;
+
+  function f_axi_r_serialize(r : t_axi_r_array) return t_slv_array is
+    variable v : t_slv_array(r'range)(f_axi_r_width(r(r'low))-1 downto 0);
+  begin
+    for i in v'range loop
+      v(i) := f_axi_r_serialize(r(i));
+    end loop;
+    return v;
+  end function;
+
+
+  function f_axi_ax_deserialize(v : std_logic_vector; IDW, AW, UW : integer) return t_axi_ax is
     variable vv : std_logic_vector(v'length-1 downto 0) := v;
     variable ax : t_axi_ax(id(IDW-1 downto 0), addr(AW-1 downto 0), user(UW-1 downto 0));
   begin
@@ -319,7 +449,7 @@ package body axi4_pkg is
     return ax;
   end function;
 
-  function f_axi_w_deserialize(v : std_logic_vector; DW, UW : natural) return t_axi_w is
+  function f_axi_w_deserialize(v : std_logic_vector; DW, UW : integer) return t_axi_w is
     variable vv : std_logic_vector(v'length-1 downto 0) := v;
     variable w  : t_axi_w(data(DW-1 downto 0), strb(DW/8-1 downto 0), user(UW-1 downto 0));
   begin
@@ -330,7 +460,7 @@ package body axi4_pkg is
     return w;
   end function;
 
-  function f_axi_b_deserialize(v : std_logic_vector; IDW, UW : natural) return t_axi_b is
+  function f_axi_b_deserialize(v : std_logic_vector; IDW, UW : integer) return t_axi_b is
     variable vv : std_logic_vector(v'length-1 downto 0) := v;
     variable b  : t_axi_b(id(IDW-1 downto 0), user(UW-1 downto 0));
   begin
@@ -340,7 +470,7 @@ package body axi4_pkg is
     return b;
   end function;
 
-  function f_axi_r_deserialize(v : std_logic_vector; IDW, DW, UW : natural) return t_axi_r is
+  function f_axi_r_deserialize(v : std_logic_vector; IDW, DW, UW : integer) return t_axi_r is
     variable vv : std_logic_vector(v'length-1 downto 0) := v;
     variable r  : t_axi_r(id(IDW-1 downto 0), data(DW-1 downto 0), user(UW-1 downto 0));
   begin
@@ -352,32 +482,56 @@ package body axi4_pkg is
     return r;
   end function;
 
-  function f_axi_deserialize(
-    v : std_logic_vector;
-    IDW, AW, DW,
-    AWUW, WUW, BUW,
-    ARUW, RUW : natural
-  ) return t_axi is
-    variable vv : std_logic_vector(v'length-1 downto 0) := v;
-    variable a : t_axi(
-      aw(id(IDW-1 downto 0), addr(AW-1 downto 0), user(AWUW-1 downto 0)),
-      w(data(DW-1 downto 0), strb(DW/8-1 downto 0), user(WUW-1 downto 0)),
-      b(id(IDW-1 downto 0), user(BUW-1 downto 0)),
-      ar(id(IDW-1 downto 0), addr(AW-1 downto 0), user(ARUW-1 downto 0)),
-      r(id(IDW-1 downto 0), data(DW-1 downto 0), user(RUW-1 downto 0))
-    );
-    constant aww  : natural := f_axi_ax_width(a.aw);
-    constant ww   : natural := f_axi_w_width(a.w);
-    constant bw   : natural := f_axi_b_width(a.b);
-    constant arw  : natural := f_axi_ax_width(a.ar);
-    constant rw   : natural := f_axi_r_width(a.r);
+  function f_axi_axid_resize(ax : t_axi_ax; idw : integer) return t_axi_ax is
+    variable v : t_axi_ax(id(idw-1 downto 0), addr(ax.addr'range), user(ax.user'range));
   begin
-    a.aw  := f_axi_ax_deserialize(vv(aww+ww+bw+arw+rw-1 downto ww+bw+arw+rw), IDW, AW, AWUW);
-    a.w   := f_axi_w_deserialize(vv(ww+bw+arw+rw-1 downto bw+arw+rw), DW, WUW);
-    a.b   := f_axi_b_deserialize(vv(bw+arw+rw-1 downto arw+rw), IDW, BUW);
-    a.ar  := f_axi_ax_deserialize(vv(arw+rw-1 downto rw), IDW, AW, ARUW);
-    a.r   := f_axi_r_deserialize(vv(rw-1 downto 0), IDW, DW, RUW);
-    return a;
+    if idw > ax.id'length then
+      v.id(idw-1 downto ax.id'length) := (others => '0');
+      v.id(ax.id'length-1 downto 0)   := ax.id;
+    else
+      v.id(idw-1 downto 0) := ax.id(idw-1 downto 0);
+    end if;
+    v.addr    := ax.addr;
+    v.len     := ax.len;
+    v.size    := ax.size;
+    v.burst   := ax.burst;
+    v.lock    := ax.lock;
+    v.cache   := ax.cache;
+    v.prot    := ax.prot;
+    v.qos     := ax.qos;
+    v.region  := ax.region;
+    v.user    := ax.user;
+    return v;
+  end function;
+
+  function f_axi_bid_resize(b : t_axi_b; idw : integer) return t_axi_b is
+    variable v : t_axi_b(id(idw-1 downto 0), user(b.user'range));
+  begin
+    if idw > b.id'length then
+      v.id(idw-1 downto b.id'length)  := (others => '0');
+      v.id(b.id'length-1 downto 0)    := b.id;
+    else
+      v.id(idw-1 downto 0) := b.id(idw-1 downto 0);
+    end if;
+    v.resp  := b.resp;
+    v.user  := b.user;
+    return v;
+  end function;
+
+  function f_axi_rid_resize(r : t_axi_r; idw : integer) return t_axi_r is
+    variable v : t_axi_r(id(idw-1 downto 0), data(r.data'range), user(r.user'range));
+  begin
+    if idw > r.id'length then
+      v.id(idw-1 downto r.id'length) := (others => '0');
+      v.id(r.id'length-1 downto 0)    := r.id;
+    else
+      v.id(idw-1 downto 0) := r.id(idw-1 downto 0);
+    end if;
+    v.data  := r.data;
+    v.resp  := r.resp;
+    v.last  := r.last;
+    v.user  := r.user;
+    return v;
   end function;
 
   function f_axi_axaddr_incr(size : t_axsize) return unsigned is

@@ -46,8 +46,8 @@ architecture rtl of cdc_4phase_src is
 begin
 
   i_ack_sync : entity lib_common.cdc_sync(rtl)
-    generic map (SYNC_FF => SYNC_FF)
-    port map (clk => clk, rst_n => rst_n, d => async_ack, q => ack);
+    generic map (WIDTH => 1, SYNC_FF => SYNC_FF)
+    port map (clk => clk, rst_n => rst_n, d(0) => async_ack, q(0) => ack);
 
   p_comb : process(all)
     variable v      : t_reg;
@@ -150,8 +150,8 @@ architecture rtl of cdc_4phase_dst is
 begin
 
   i_req_sync : entity lib_common.cdc_sync(rtl)
-    generic map (SYNC_FF => SYNC_FF)
-    port map (clk => clk, rst_n => rst_n, d => async_req, q => req);
+    generic map (WIDTH => 1, SYNC_FF => SYNC_FF)
+    port map (clk => clk, rst_n => rst_n, d(0) => async_req, q(0) => req);
 
   p_comb : process(all)
     variable v      : t_reg;

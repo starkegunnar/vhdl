@@ -9,12 +9,15 @@ use lib_common.common_pkg.all;
 entity reg_slice is
   generic (
     DW          : positive;
+    RESET_DATA  : integer := 0;
+    ASYNC_RESET : integer := 0;
+    BYPASS      : integer := 0;
     SLICE_TYPE  : t_reg_slice_type := e_reg_slice_full
   );
   port (
     -- Clock and reset
     clk     : in  std_logic;
-    rst     : in  std_logic;
+    rst_n   : in  std_logic;
     -- Data and flow control
     s_data  : in  std_logic_vector(DW-1 downto 0);
     s_valid : in  std_logic;
@@ -33,11 +36,14 @@ begin
   when e_reg_slice_full =>
     i_reg_slice : entity lib_common.reg_slice_full(rtl)
     generic map (
-      DW => DW
+      DW          => DW,
+      RESET_DATA  => RESET_DATA,
+      ASYNC_RESET => ASYNC_RESET,
+      BYPASS      => BYPASS
     )
     port map (
       clk       => clk,
-      rst       => rst,
+      rst_n     => rst_n,
       s_data    => s_data,
       s_valid   => s_valid,
       s_ready   => s_ready,
@@ -45,14 +51,17 @@ begin
       m_valid   => m_valid,
       m_ready   => m_ready
     );
-  when e_reg_slice_fallthrough =>
-    i_reg_slice : entity lib_common.reg_slice_fallthrough(rtl)
+  when e_reg_slice_pipe =>
+    i_reg_slice : entity lib_common.reg_slice_pipe(rtl)
     generic map (
-      DW => DW
+      DW          => DW,
+      RESET_DATA  => RESET_DATA,
+      ASYNC_RESET => ASYNC_RESET,
+      BYPASS      => BYPASS
     )
     port map (
       clk       => clk,
-      rst       => rst,
+      rst_n     => rst_n,
       s_data    => s_data,
       s_valid   => s_valid,
       s_ready   => s_ready,
@@ -60,14 +69,17 @@ begin
       m_valid   => m_valid,
       m_ready   => m_ready
     );
-  when e_reg_slice_srl =>
-    i_reg_slice : entity lib_common.reg_slice_srl(rtl)
+  when e_reg_slice_spill =>
+    i_reg_slice : entity lib_common.reg_slice_spill(rtl)
     generic map (
-      DW => DW
+      DW          => DW,
+      RESET_DATA  => RESET_DATA,
+      ASYNC_RESET => ASYNC_RESET,
+      BYPASS      => BYPASS
     )
     port map (
       clk       => clk,
-      rst       => rst,
+      rst_n     => rst_n,
       s_data    => s_data,
       s_valid   => s_valid,
       s_ready   => s_ready,

@@ -7,204 +7,153 @@ use lib_common.common_pkg.all;
 
 entity tdpram_be is
   generic (
-    g_addr_width    : positive;
-    g_col_width     : positive;
-    g_num_cols      : positive;
-    g_a_ram_mode    : t_ram_mode := e_ram_read_first;
-    g_b_ram_mode    : t_ram_mode := e_ram_read_first;
-    g_reg_output    : boolean;
-    g_init_file     : string := ""
+    AW            : integer;
+    DEPTH         : integer := 0;
+    COLW          : integer;
+    N_COL         : integer;
+    COMMON_CLK    : integer range 0 to 1;
+    RAM_MODE_A    : integer range RAM_READ_FIRST to RAM_NO_CHANGE := RAM_READ_FIRST;
+    RAM_MODE_B    : integer range RAM_READ_FIRST to RAM_NO_CHANGE := RAM_READ_FIRST;
+    INIT_FILE     : string := ""
   );
   port (
-    clka      : in  std_logic;
-    ena       : in  std_logic;
-    addra     : in  std_logic_vector(g_addr_width-1 downto 0);
-    wea       : in  std_logic_vector(g_num_cols-1 downto 0);
-    dina      : in  std_logic_vector(g_num_cols*g_col_width-1 downto 0);
-    rsta      : in  std_logic := '0';
-    regcea    : in  std_logic := '1';
-    douta     : out std_logic_vector(g_num_cols*g_col_width-1 downto 0);
-    clkb      : in  std_logic;
-    enb       : in  std_logic;
-    addrb     : in  std_logic_vector(g_addr_width-1 downto 0);
-    web       : in  std_logic_vector(g_num_cols-1 downto 0);
-    dinb      : in  std_logic_vector(g_num_cols*g_col_width-1 downto 0);
-    rstb      : in  std_logic := '0';
-    regceb    : in  std_logic := '1';
-    doutb     : out std_logic_vector(g_num_cols*g_col_width-1 downto 0)
+    clka    : in  std_logic;
+    ena     : in  std_logic;
+    addra   : in  std_logic_vector(AW-1 downto 0);
+    wea     : in  std_logic_vector(N_COL-1 downto 0);
+    dina    : in  std_logic_vector(N_COL*COLW-1 downto 0);
+    douta   : out std_logic_vector(N_COL*COLW-1 downto 0);
+    clkb    : in  std_logic;
+    enb     : in  std_logic;
+    addrb   : in  std_logic_vector(AW-1 downto 0);
+    web     : in  std_logic_vector(N_COL-1 downto 0);
+    dinb    : in  std_logic_vector(N_COL*COLW-1 downto 0);
+    doutb   : out std_logic_vector(N_COL*COLW-1 downto 0)
   );
 end entity tdpram_be;
 
 architecture rtl of tdpram_be is
 
-  constant c_aw     : positive := g_addr_width;
-  constant c_cw     : positive := g_col_width;
-  constant c_nc     : positive := g_num_cols;
-  constant c_dw     : positive := c_nc*c_cw;
-  constant c_lsbw   : positive := f_log2(c_nc);
-  constant c_sz     : positive := 2**(c_aw);
+  constant DW : integer := N_COL*COLW;
 
-  signal ram        : t_slv_array(c_sz-1 downto 0)(c_dw-1 downto 0) := (others => (others => '0'));
+  function f_depth return integer is
+  begin
+    if DEPTH > 0 then
+      return minimum(DEPTH, 2**AW);
+    else
+      return 2**AW;
+    end if;
+  end function;
 
-  signal ram_douta  : std_logic_vector(c_dw-1 downto 0);
-  signal ram_doutb  : std_logic_vector(c_dw-1 downto 0);
-  signal reg_douta  : std_logic_vector(c_dw-1 downto 0);
-  signal reg_doutb  : std_logic_vector(c_dw-1 downto 0);
+  signal mem      : t_slv_array(0 to f_depth-1)(DW-1 downto 0);
+  signal clkb_int : std_logic;
 
 begin
 
-  b_read_first_a : if g_a_ram_mode = e_ram_read_first generate
-    p_port_a : process(clka)
+  clkb_int <= clka when COMMON_CLK /= 0 else clkb;
+
+  gen_ram_read_first_a : if RAM_MODE_A = RAM_READ_FIRST generate
+    p_mem : process(clka)
     begin
       if rising_edge(clka) then
         if ena = '1' then
-          ram_douta <= ram(to_integer(unsigned(addra)));
-          for i in 0 to c_nc-1 loop
+          douta <= mem(to_integer(unsigned(addra)));
+          for i in 0 to N_COL-1 loop
             if wea(i) = '1' then
-              ram(to_integer(unsigned(addra)))((i+1)*c_cw-1 downto i*c_cw) <= dina((i+1)*c_cw-1 downto i*c_cw);
+              mem(to_integer(unsigned(addra)))((i+1)*COLW-1 downto i*COLW) <= dina((i+1)*COLW-1 downto i*COLW);
             end if;
           end loop;
         end if;
-        if regcea = '1' then
-          reg_douta <= ram_douta;
-        end if;
-        if rsta = '1' then
-          reg_douta <= (others => '0');
+      end if;
+    end process;
+  end generate gen_ram_read_first_a;
+
+  gen_ram_read_first_b : if RAM_MODE_B = RAM_READ_FIRST generate
+    p_mem : process(clkb_int)
+    begin
+      if rising_edge(clkb_int) then
+        if enb = '1' then
+          doutb <= mem(to_integer(unsigned(addrb)));
+          for i in 0 to N_COL-1 loop
+            if web(i) = '1' then
+              mem(to_integer(unsigned(addrb)))((i+1)*COLW-1 downto i*COLW) <= dinb((i+1)*COLW-1 downto i*COLW);
+            end if;
+          end loop;
         end if;
       end if;
     end process;
-  end generate b_read_first_a;
+  end generate gen_ram_read_first_b;
 
-  b_write_first_a : if g_a_ram_mode = e_ram_write_first generate
-    b_port_a : for i in 0 to c_nc-1 generate
-      p_port_a : process(clka)
-      begin
-        if rising_edge(clka) then
-          if ena = '1' then
-            if wea(i) = '1' then
-              ram(to_integer(unsigned(addra)))((i+1)*c_cw-1 downto i*c_cw) <= dina((i+1)*c_cw-1 downto i*c_cw);
-              ram_douta((i+1)*c_cw-1 downto i*c_cw) <= dina((i+1)*c_cw-1 downto i*c_cw);
-            else
-              ram_douta((i+1)*c_cw-1 downto i*c_cw) <= ram(to_integer(unsigned(addra)))((i+1)*c_cw-1 downto i*c_cw);
-            end if;
-          end if;
-        end if;
-      end process;
-    end generate b_port_a;
-    p_reg_a : process(clka)
+  gen_ram_write_first_a : if RAM_MODE_A = RAM_WRITE_FIRST generate
+    p_mem : process(clka)
     begin
       if rising_edge(clka) then
-        if regcea = '1' then
-          reg_douta <= ram_douta;
-        end if;
-        if rsta = '1' then
-          reg_douta <= (others => '0');
+        if ena = '1' then
+          for i in 0 to N_COL-1 loop
+            if wea(i) = '1' then
+              mem(to_integer(unsigned(addra)))((i+1)*COLW-1 downto i*COLW) <= dina((i+1)*COLW-1 downto i*COLW);
+              douta((i+1)*COLW-1 downto i*COLW) <= dina((i+1)*COLW-1 downto i*COLW);
+            else
+              douta((i+1)*COLW-1 downto i*COLW) <= mem(to_integer(unsigned(addra)))((i+1)*COLW-1 downto i*COLW);
+            end if;
+          end loop;
         end if;
       end if;
     end process;
-  end generate b_write_first_a;
+  end generate gen_ram_write_first_a;
 
-  b_no_change_a : if g_a_ram_mode = e_ram_no_change generate
-    p_port_a : process(clka)
+  gen_ram_write_first_b : if RAM_MODE_B = RAM_WRITE_FIRST generate
+    p_mem : process(clkb_int)
+    begin
+      if rising_edge(clkb_int) then
+        if enb = '1' then
+          for i in 0 to N_COL-1 loop
+            if web(i) = '1' then
+              mem(to_integer(unsigned(addrb)))((i+1)*COLW-1 downto i*COLW) <= dinb((i+1)*COLW-1 downto i*COLW);
+              doutb((i+1)*COLW-1 downto i*COLW) <= dinb((i+1)*COLW-1 downto i*COLW);
+            else
+              doutb((i+1)*COLW-1 downto i*COLW) <= mem(to_integer(unsigned(addrb)))((i+1)*COLW-1 downto i*COLW);
+            end if;
+          end loop;
+        end if;
+      end if;
+    end process;
+  end generate gen_ram_write_first_b;
+
+  gen_ram_no_change_a : if RAM_MODE_A = RAM_NO_CHANGE generate
+    p_mem : process(clka)
     begin
       if rising_edge(clka) then
         if ena = '1' then
           if nor wea = '1' then
-            ram_douta <= ram(to_integer(unsigned(addra)));
+            douta <= mem(to_integer(unsigned(addra)));
           end if;
-          for i in 0 to c_nc-1 loop
+          for i in 0 to N_COL-1 loop
             if wea(i) = '1' then
-              ram(to_integer(unsigned(addra)))((i+1)*c_cw-1 downto i*c_cw) <= dina((i+1)*c_cw-1 downto i*c_cw);
+              mem(to_integer(unsigned(addra)))((i+1)*COLW-1 downto i*COLW) <= dina((i+1)*COLW-1 downto i*COLW);
             end if;
           end loop;
         end if;
-        if regcea = '1' then
-          reg_douta <= ram_douta;
-        end if;
-        if rsta = '1' then
-          reg_douta <= (others => '0');
-        end if;
       end if;
     end process;
-  end generate b_no_change_a;
+  end generate gen_ram_no_change_a;
 
-  douta <= reg_douta when g_reg_output else ram_douta;
-
-  b_read_first_b: if g_b_ram_mode = e_ram_read_first generate
-    p_port_b : process(clkb)
+  gen_ram_no_change_b : if RAM_MODE_B = RAM_NO_CHANGE generate
+    p_mem : process(clkb_int)
     begin
-      if rising_edge(clkb) then
-        if enb = '1' then
-          ram_doutb <= ram(to_integer(unsigned(addrb)));
-          for i in 0 to c_nc-1 loop
-            if web(i) = '1' then
-              ram(to_integer(unsigned(addrb)))((i+1)*c_cw-1 downto i*c_cw) <= dinb((i+1)*c_cw-1 downto i*c_cw);
-            end if;
-          end loop;
-        end if;
-        if regceb = '1' then
-          reg_doutb <= ram_doutb;
-        end if;
-        if rstb = '1' then
-          reg_doutb <= (others => '0');
-        end if;
-      end if;
-    end process;
-  end generate b_read_first_b;
-
-  b_write_first_b : if g_b_ram_mode = e_ram_write_first generate
-    b_port_b : for i in 0 to c_nc-1 generate
-      p_port_b : process(clkb)
-      begin
-        if rising_edge(clkb) then
-          if enb = '1' then
-            if web(i) = '1' then
-              ram(to_integer(unsigned(addrb)))((i+1)*c_cw-1 downto i*c_cw) <= dinb((i+1)*c_cw-1 downto i*c_cw);
-              ram_doutb((i+1)*c_cw-1 downto i*c_cw) <= dinb((i+1)*c_cw-1 downto i*c_cw);
-            else
-              ram_doutb((i+1)*c_cw-1 downto i*c_cw) <= ram(to_integer(unsigned(addrb)))((i+1)*c_cw-1 downto i*c_cw);
-            end if;
-          end if;
-        end if;
-      end process;
-    end generate b_port_b;
-    p_reg_b : process(clkb)
-    begin
-      if rising_edge(clkb) then
-        if regceb = '1' then
-          reg_doutb <= ram_doutb;
-        end if;
-        if rstb = '1' then
-          reg_doutb <= (others => '0');
-        end if;
-      end if;
-    end process;
-  end generate b_write_first_b;
-
-  b_no_change_b : if g_b_ram_mode = e_ram_no_change generate
-    p_port_b : process(clkb)
-    begin
-      if rising_edge(clkb) then
+      if rising_edge(clkb_int) then
         if enb = '1' then
           if nor web = '1' then
-            ram_doutb <= ram(to_integer(unsigned(addrb)));
+            doutb <= mem(to_integer(unsigned(addrb)));
           end if;
-          for i in 0 to c_nc-1 loop
+          for i in 0 to N_COL-1 loop
             if web(i) = '1' then
-              ram(to_integer(unsigned(addrb)))((i+1)*c_cw-1 downto i*c_cw) <= dinb((i+1)*c_cw-1 downto i*c_cw);
+              mem(to_integer(unsigned(addrb)))((i+1)*COLW-1 downto i*COLW) <= dinb((i+1)*COLW-1 downto i*COLW);
             end if;
           end loop;
         end if;
-        if regceb = '1' then
-          reg_doutb <= ram_doutb;
-        end if;
-        if rstb = '1' then
-          reg_doutb <= (others => '0');
-        end if;
       end if;
     end process;
-  end generate b_no_change_b;
-
-  doutb <= reg_doutb when g_reg_output else ram_doutb;
+  end generate gen_ram_no_change_b;
 
 end architecture;

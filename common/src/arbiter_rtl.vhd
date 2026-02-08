@@ -37,14 +37,23 @@ architecture rtl of arbiter is
 
 begin
 
-  pr_prio_enc(req, arb.mask, arb.index, arb.valid);
-
-  b_round_robin : if ROUND_ROBIN generate
-    signal req_masked : std_logic_vector(WIDTH-1 downto 0);
+  p_comb : process(all)
+    variable v          : t_arb;
+    variable v_masked   : t_arb;
+    variable gnt_in     : std_logic := '1';
+    variable req_masked : std_logic_vector(WIDTH-1 downto 0);
   begin
-    req_masked <= req and mask;
-    pr_prio_enc(req_masked, arb_masked.mask, arb_masked.index, arb_masked.valid);
-  end generate b_round_robin;
+    v := arb;
+    v_masked := arb_masked;
+
+    req_masked := req and mask;
+
+    pr_prio_enc(req, gnt_in, v.mask, v.index, v.valid);
+
+    if ROUND_ROBIN then
+      pr_prio_enc(req_masked, gnt_in, v_masked.mask, v_masked.index, v_masked.valid);
+    end if;
+  end process;
 
   p_arbiter : process(clk)
   begin
