@@ -1,6 +1,5 @@
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_misc.all;
 use ieee.numeric_std.all;
 
 library lib_common;
@@ -8,11 +7,14 @@ use lib_common.common_pkg.all;
 
 entity reg_slice is
   generic (
-    DW          : positive;
-    RESET_DATA  : integer := 0;
-    ASYNC_RESET : integer := 0;
-    BYPASS      : integer := 0;
-    SLICE_TYPE  : t_reg_slice_type := e_reg_slice_full
+    DW          : integer;
+    SLICE_TYPE  : integer range 0 to 3 := 1; -- 0 -> Passthrough, no slice
+                                             -- 1 -> Registered output
+                                             -- 2 -> Registered input
+                                             -- 3 -> Registered input pipe
+    RESET_DATA  : integer range 0 to 1 := 0;
+    ASYNC_RESET : integer range 0 to 1 := 0;
+    LOW_FANOUT  : integer range 0 to 1 := 0
   );
   port (
     -- Clock and reset
@@ -30,67 +32,160 @@ end entity reg_slice;
 
 architecture rtl of reg_slice is
 
+  constant DD : integer := cond(SLICE_TYPE = 3, 4, 2);
+  constant RW : integer := cond(SLICE_TYPE = 3, 2, 1);
+
+  type t_reg is record
+    data    : t_slv_array(0 to DD-1)(DW-1 downto 0);
+    valid   : std_logic;
+    ready   : std_logic_vector(RW-1 downto 0);
+    ptr     : std_logic_vector(1 downto 0);
+  end record;
+
+  constant RST : t_reg := (
+    data    => (others => (others => '0')),
+    valid   => '0',
+    ready   => (others => cond(SLICE_TYPE = 3, '0', '1')),
+    ptr     => (others => '0')
+  );
+
+  signal q, d : t_reg;
+
 begin
 
-  b_register_slice : case SLICE_TYPE generate
-  when e_reg_slice_full =>
-    i_reg_slice : entity lib_common.reg_slice_full(rtl)
-    generic map (
-      DW          => DW,
-      RESET_DATA  => RESET_DATA,
-      ASYNC_RESET => ASYNC_RESET,
-      BYPASS      => BYPASS
-    )
-    port map (
-      clk       => clk,
-      rst_n     => rst_n,
-      s_data    => s_data,
-      s_valid   => s_valid,
-      s_ready   => s_ready,
-      m_data    => m_data,
-      m_valid   => m_valid,
-      m_ready   => m_ready
-    );
-  when e_reg_slice_pipe =>
-    i_reg_slice : entity lib_common.reg_slice_pipe(rtl)
-    generic map (
-      DW          => DW,
-      RESET_DATA  => RESET_DATA,
-      ASYNC_RESET => ASYNC_RESET,
-      BYPASS      => BYPASS
-    )
-    port map (
-      clk       => clk,
-      rst_n     => rst_n,
-      s_data    => s_data,
-      s_valid   => s_valid,
-      s_ready   => s_ready,
-      m_data    => m_data,
-      m_valid   => m_valid,
-      m_ready   => m_ready
-    );
-  when e_reg_slice_spill =>
-    i_reg_slice : entity lib_common.reg_slice_spill(rtl)
-    generic map (
-      DW          => DW,
-      RESET_DATA  => RESET_DATA,
-      ASYNC_RESET => ASYNC_RESET,
-      BYPASS      => BYPASS
-    )
-    port map (
-      clk       => clk,
-      rst_n     => rst_n,
-      s_data    => s_data,
-      s_valid   => s_valid,
-      s_ready   => s_ready,
-      m_data    => m_data,
-      m_valid   => m_valid,
-      m_ready   => m_ready
-    );
-  when others =>
-    m_data  <= s_data;
-    m_valid <= s_valid;
-    s_ready <= m_ready;
-  end generate b_register_slice;
+  p_comb : process(all)
+    variable v : t_reg;
+    variable wr, rd : std_logic;
+  begin
+    v := q;
+
+    case SLICE_TYPE is
+    when C_SLICE_TYPE_REG_OUT =>
+
+      -- Fill spill register if receiver is not ready but m_data is valid
+      if s_valid and not q.ready(0) and q.valid and not m_ready then
+        v.ready(0) := '0';
+      elsif m_ready then
+        v.ready(0) := '1';
+      end if;
+
+      -- Fill spill register data
+      if q.ready(0) and (LOW_FANOUT /= 0 or s_valid) then
+        v.data(0) := s_data;
+      end if;
+
+      -- Set m_data if empty or if receiver is ready
+      if not q.valid or m_ready then
+        v.valid := s_valid or not q.ready(0);
+        if LOW_FANOUT /= 0 or s_valid or not q.ready(0) then
+          v.data  := (s_data and q.ready(0)) or (q.data(0) and not q.ready(0));
+        end if;
+      end if;
+
+      s_ready <= q.ready(0);
+      m_data  <= q.data(1);
+      m_valid <= q.valid;
+
+    when C_SLICE_TYPE_REG_IN =>
+
+      -- Update valid if input is valid or if spill register is empty
+      if (s_valid or q.valid) and q.ready(0) then
+        v.valid := s_valid and q.ready(0);
+      end if;
+
+      -- Sample input data if spill register is empty (and input data is valid)
+      if q.ready(0) and (LOW_FANOUT /= 0 or s_valid) then
+        v.data(0) := s_data;
+      end if;
+
+      -- Update ready if spill is empty but output is stalled, or if spill is full and output is ready
+      if (q.valid and q.ready(0) and not m_ready) or (not q.ready(0) and m_ready) then
+        v.s_ready(0) := not (q.valid and q.ready(0) and not m_ready);
+      end if;
+
+      -- Fill spill if ready and output is stalled
+      if (q.ready(0) and not m_ready) and (LOW_FANOUT /= 0 or q.valid) then
+        v.data(1) := q.data(0);
+      end if;
+
+      s_ready <= q.ready(0);
+      m_valid <= q.valid or not q.ready(0);
+      m_data  <= (q.data(0) and q.ready(0)) or (q.data(1) and not q.ready(0));
+
+    when C_SLICE_TYPE_PIPE => 
+
+      -- Pipe valid and ready
+      v.valid     := s_valid;
+      v.ready(1)  := q.ready(0);
+      v.ready(0)  := m_ready or nor q.ptr;
+
+      -- Pipe data
+      if LOW_FANOUT /= 0 or s_valid then
+        v.data(0) := s_data;
+      end if;
+
+      -- Shift data
+      if q.valid and q.ready(1) and (LOW_FANOUT /= 0 or ((or q.ptr) or not m_ready)) then
+        v.data(1 to DW-1) := q.data(0 to DW-2);
+      end if;
+
+      -- Write to shift register if data is valid and the
+      -- the pointer is not zero or the output is stalled
+      wr := q.valid and q.ready(1) and ((or q.ptr) or not m_ready);
+      -- Read from shift register if the pointer is not zero and
+      -- the output is ready
+      rd := (or q.ptr) and m_ready;
+      if wr and not rd then
+        v.ptr := std_logic_vector(unsigned(q.ptr) + 1);
+      elsif not wr and rd then
+        v.ptr := std_logic_vector(unsigned(q.ptr) - 1);
+      end if;
+
+      s_ready <= q.ready(0);
+      m_data  <= q.data(to_integer(unsigned(q.ptr)));
+      m_valid <= (q.valid and q.ready(1)) or (or q.ptr);
+
+    when others =>
+      -- Passthrough
+      s_ready <= m_ready;
+      m_data  <= s_data;
+      m_valid <= s_valid;
+
+    end case;
+
+    if SLICE_TYPE /= 0 then
+      if ASYNC_RESET = 0 and rst_n = '0' then
+        v.ready := RST.ready;
+        v.valid := RST.valid;
+        if RESET_DATA /= 0 then
+          v.data := RST.data;
+        end if;
+        if SLICE_TYPE = C_SLICE_TYPE_PIPE then
+          v.ptr := RST.ptr;
+        end if;
+      end if;
+    end if;
+
+    d <= v;
+  end process;
+
+  p_reg : process(clk, rst_n)
+  begin
+    if SLICE_TYPE /= 0 then
+      if rising_edge(clk) then
+        q <= d;
+      end if;
+      if ASYNC_RESET /= 0 and rst_n = '0' then
+        q.ready <= RST.ready;
+        q.valid <= RST.valid;
+        if RESET_DATA /= 0 then
+          q.data <= RST.data;
+        end if;
+        if SLICE_TYPE = C_SLICE_TYPE_PIPE then
+          q.ptr <= RST.ptr;
+        end if;
+      end if;
+    end if;
+  end process;
 
 end architecture rtl;

@@ -60,13 +60,14 @@ begin
 
   p_reg : process(clk, rst_n)
   begin
+    if rising_edge(clk) then
+      q <= d;
+    end if;
     if ASYNC_RESET /= 0 and rst_n = '0' then
       q.m_valid <= RST.m_valid;
       if RESET_DATA /= 0 then
         q.m_data <= RST.m_data;
       end if;
-    elsif rising_edge(clk) then
-      q <= d;
     end if;
   end process;
 

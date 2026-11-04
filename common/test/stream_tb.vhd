@@ -188,9 +188,10 @@ begin
 
   end generate b_gen_ctrl;
 
-  i_dut_full : entity lib_common.reg_slice_full(rtl)
+  i_dut_full : entity lib_common.reg_slice(rtl)
   generic map (
-    DW  => 8
+    DW          => 8,
+    SLICE_TYPE  => C_SLICE_TYPE_REG_OUT
   )
   port map (
     clk     => tb_clk,
@@ -205,7 +206,8 @@ begin
 
   i_dut_pipe : entity lib_common.reg_slice_pipe(rtl)
   generic map (
-    DW  => 8
+    DW          => 8,
+    SLICE_TYPE  => C_SLICE_TYPE_PIPE
   )
   port map (
     clk     => tb_clk,
@@ -220,7 +222,8 @@ begin
 
   i_dut_spill : entity lib_common.reg_slice_spill(rtl)
   generic map (
-    DW  => 8
+    DW          => 8,
+    SLICE_TYPE  => C_SLICE_TYPE_REG_IN
   )
   port map (
     clk     => tb_clk,
@@ -272,52 +275,6 @@ begin
     rvalid    => streams_in(4).m_valid
   );
 
-
---  i_fifo_srl : entity lib_common.fifo_srl(rtl)
---  generic map (
---    t_data          => std_logic_vector(7 downto 0),
---    g_bypass_empty  => true
---  )
---  port map (
---    clk     => tb_clk,
---    rst     => tb_rst,
---    s_data  => streams_in(3).s_data,
---    s_valid => streams_in(3).s_valid,
---    s_ready => streams_in(3).s_ready,
---    m_data  => streams_in(3).m_data,
---    m_valid => streams_in(3).m_valid,
---    m_ready => streams_in(3).m_ready
---  );
-
---  i_fifo : entity lib_common.fifo(rtl)
---  generic map (
---    t_data  => std_logic_vector(7 downto 0)
---  )
---  port map (
---    clk     => tb_clk,
---    rst     => tb_rst,
---    s_data  => streams_in(4).s_data,
---    s_valid => streams_in(4).s_valid,
---    s_ready => streams_in(4).s_ready,
---    m_data  => streams_in(4).m_data,
---    m_valid => streams_in(4).m_valid,
---    m_ready => streams_in(4).m_ready
---  );
-
---  i_spill : entity lib_common.reg_slice_spill(rtl)
---  generic map (
---    t_data  => std_logic_vector(7 downto 0)
---  )
---  port map (
---    clk     => tb_clk,
---    rst     => tb_rst,
---    s_data  => streams_in(4).s_data,
---    s_valid => streams_in(4).s_valid,
---    s_ready => streams_in(4).s_ready,
---    m_data  => streams_in(4).m_data,
---    m_valid => streams_in(4).m_valid,
---    m_ready => streams_in(4).m_ready
---  );
 
   b_req : for i in 0 to c_a-1 generate
     req(i) <= streams_in(c_s+i).s_valid;

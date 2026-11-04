@@ -25,6 +25,12 @@ architecture rtl of cdc_sync is
 
   signal q_sync : t_slv_array(SYNC_FF-1 downto 0)(WIDTH-1 downto 0);
 
+  attribute CDC_TYPE : string;
+  attribute CDC_TYPE of rtl : architecture is CDC_TYPE;
+
+  attribute DONT_TOUCH : string;
+  attribute DONT_TOUCH of rtl : architecture is "yes";
+
   attribute ASYNC_REG : string;
   attribute ASYNC_REG of q_sync : signal is "true";
 

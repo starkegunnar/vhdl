@@ -26,6 +26,10 @@ package common_pkg is
 
   --! Register slice type
   --!
+  constant C_SLICE_TYPE_NONE    : integer := 0;
+  constant C_SLICE_TYPE_REG_OUT : integer := 1;
+  constant C_SLICE_TYPE_REG_IN  : integer := 2;
+  constant C_SLICE_TYPE_PIPE    : integer := 3;
   type t_reg_slice_type is (
     e_reg_slice_none,
     e_reg_slice_full,
@@ -153,6 +157,7 @@ package common_pkg is
     signal empty  : out std_logic
   );
 
+  
 
 end package common_pkg;
 
@@ -343,10 +348,10 @@ package body common_pkg is
     variable v_op : std_logic_vector(c_w-1 downto 0) := (others => '0');
   begin
     v_op(op'length-1 downto 0) := op;
-    if c_h = 1 then
+    if c_h <= 1 then
       return not v_op(0 downto 0);
     else
-      if or v_op(c_h-1 downto 0) = '1' then
+      if v_op(c_h-1 downto 0) /= (c_h-1 downto 0 => '0') then
         return '0' & f_ctz(v_op(c_h-1 downto 0));
       else
         return '1' & f_ctz(v_op(v_op'high downto c_h));

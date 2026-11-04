@@ -19,10 +19,6 @@ SOURCES_VHDL = \
 	$(COMPONENT_DIR)/src/fallthrough_reg_rtl.vhd \
 	$(COMPONENT_DIR)/src/fifo_srl_rtl.vhd \
 	$(COMPONENT_DIR)/src/fifo_rtl.vhd \
-	$(COMPONENT_DIR)/src/reg_slice_full_rtl.vhd \
-	$(COMPONENT_DIR)/src/reg_slice_srl_rtl.vhd \
-	$(COMPONENT_DIR)/src/reg_slice_pipe_rtl.vhd \
-	$(COMPONENT_DIR)/src/reg_slice_spill_rtl.vhd \
 	$(COMPONENT_DIR)/src/reg_slice_rtl.vhd \
 	$(COMPONENT_DIR)/src/arbiter_rtl.vhd \
 	$(COMPONENT_DIR)/src/arbiter_tree_rtl.vhd \

@@ -4,9 +4,10 @@ use ieee.std_logic_1164.all;
 entity reg_slice_full is
   generic (
     DW          : integer;
-    RESET_DATA  : integer := 0;
-    ASYNC_RESET : integer := 0;
-    BYPASS      : integer := 0
+    RESET_DATA  : integer range 0 to 1 := 0;
+    ASYNC_RESET : integer range 0 to 1 := 0;
+    SLICE_TYPE  : integer range 0 to 3 := 1;
+    LOW_FANOUT  : integer range 0 to 1 := 0
   );
   port (
     -- Clock and reset
@@ -24,18 +25,21 @@ end entity reg_slice_full;
 
 architecture rtl of reg_slice_full is
 
+  constant DD : integer := cond(SLICE_TYPE = 3, 4, 2);
+  constant RW : integer := cond(SLICE_TYPE = 3, 2, 1);
+
   type t_reg is record
-    s_data  : std_logic_vector(DW-1 downto 0);
-    s_ready : std_logic;
-    m_data  : std_logic_vector(DW-1 downto 0);
-    m_valid : std_logic;
+    data    : t_slv_array(0 to DD-1)(DW-1 downto 0);
+    valid   : std_logic;
+    ready   : std_logic_vector(RW-1 downto 0);
+    ptr     : std_logic_vector(1 downto 0);
   end record;
 
   constant RST : t_reg := (
-    s_data  => (others => '0'),
-    s_ready => '1',
-    m_data  => (others => '0'),
-    m_valid => '0'
+    data    => (others => (others => '0')),
+    valid   => '0',
+    ready   => (others => cond(SLICE_TYPE = 3, '0', '1')),
+    ptr     => (others => '0')
   );
 
   signal q, d : t_reg;
@@ -44,60 +48,138 @@ begin
 
   p_comb : process(all)
     variable v : t_reg;
+    variable wr, rd : std_logic;
   begin
     v := q;
 
-    -- Fill spill register if receiver is not ready but m_data is valid
-    if s_valid and q.s_ready and q.m_valid and not m_ready then
-      v.s_ready := '0';
-    elsif m_ready then
-      v.s_ready := '1';
-    end if;
+    case SLICE_TYPE is
+    when C_SLICE_TYPE_REG_OUT =>
 
-    if q.s_ready then
-      v.s_data := s_data;
-    end if;
+      -- Fill spill register if receiver is not ready but m_data is valid
+      if s_valid and not q.ready(0) and q.valid and not m_ready then
+        v.ready(0) := '0';
+      elsif m_ready then
+        v.ready(0) := '1';
+      end if;
 
-    -- Fill m_data if empty or if receiver is ready
-    if not q.m_valid or m_ready then
-      v.m_valid := s_valid or not q.s_ready;
-      v.m_data  := (s_data and q.s_ready) or (q.s_data and not q.s_ready);
-    end if;
+      if q.ready(0) and (LOW_FANOUT /= 0 or s_valid) then
+        v.data(0) := s_data;
+      end if;
 
-    if ASYNC_RESET = 0 and rst_n = '0' then
-      v.s_ready := RST.s_ready;
-      v.m_valid := RST.m_valid;
-      if RESET_DATA /= 0 then
-        v.s_data := RST.s_data;
-        v.m_data := RST.m_data;
+      -- Fill m_data if empty or if receiver is ready
+      if not q.valid or m_ready then
+        if LOW_FANOUT /= 0 then
+          v.valid := s_valid or not q.ready(0);
+          v.data  := (s_data and q.ready(0)) or (q.data(0) and not q.ready(0));
+        elsif not q.ready(0) or s_valid then
+          v.valid := '1';
+          if not q.ready(0) then
+            v.data  := q.data(0);
+          elsif s_valid then
+            v.data  := s_data;
+          end if;
+        end if;
+      end if;
+
+      s_ready <= q.ready(0);
+      m_data  <= q.data(1);
+      m_valid <= q.valid;
+
+    when C_SLICE_TYPE_REG_IN =>
+
+      -- Update valid if input is valid or if spill register is empty
+      if (s_valid or q.valid) and q.ready(0) then
+        v.valid := s_valid and q.ready(0);
+      end if;
+
+      -- Sample input data if spill register is empty (and input data is valid)
+      if q.ready(0) and (LOW_FANOUT /= 0 or s_valid) then
+        v.data(0) := s_data;
+      end if;
+
+      -- Update ready if spill is empty but output is stalled, or if spill is full and output is ready
+      if (q.valid and q.ready(0) and not m_ready) or (not q.ready(0) and m_ready) then
+        v.s_ready(0) := not (q.valid and q.ready(0) and not m_ready);
+      end if;
+
+      -- Fill spill if ready and output is stalled
+      if (q.ready(0) and not m_ready) and (LOW_FANOUT /= 0 or q.valid) then
+        v.data(1) := q.data(0);
+      end if;
+
+      s_ready <= q.ready(0);
+      m_valid <= q.valid or not q.ready(0);
+      m_data  <= (q.data(0) and q.ready(0)) or (q.data(1) and not q.ready(0));
+
+    when C_SLICE_TYPE_PIPE => 
+
+      -- Pipe valid and ready
+      v.valid     := s_valid;
+      v.ready(1)  := q.ready(0);
+      v.ready(0)  := m_ready;
+
+      -- Pipe data
+      v.data(0)   := s_data;
+
+      -- Store data if receiver is not ready
+      if q.valid and q.s_ready(1) then
+        v.shreg(1 to DW-1) := q.shreg(0 to DW-2);
+      end if;
+
+      -- Increment or decrement pointer
+      wr := q.valid and q.ready(1) and ((or q.ptr) or not m_ready);
+      rd := (or q.ptr) and m_ready;
+      if wr and not rd then
+        v.ptr := std_logic_vector(unsigned(q.ptr) + 1);
+      elsif not wr and rd then
+        v.ptr := std_logic_vector(unsigned(q.ptr) - 1);
+      end if;
+
+      s_ready <= q.ready(0);
+      m_data  <= q.data(to_integer(unsigned(q.ptr)));
+      m_valid <= (q.valid and q.ready(1)) or (or q.ptr);
+
+    when others =>
+      -- Passthrough
+      s_ready <= m_ready;
+      m_data  <= s_data;
+      m_valid <= s_valid;
+
+    end case;
+
+    if SLICE_TYPE /= 0 then
+      if ASYNC_RESET = 0 and rst_n = '0' then
+        v.ready := RST.ready;
+        v.valid := RST.valid;
+        if RESET_DATA /= 0 then
+          v.data := RST.data;
+        end if;
+        if SLICE_TYPE = C_SLICE_TYPE_PIPE then
+          v.ptr := RST.ptr;
+        end if;
       end if;
     end if;
 
     d <= v;
-
-    if BYPASS = 0 then
-      s_ready <= q.s_ready;
-      m_data  <= q.m_data;
-      m_valid <= q.m_valid;
-    else
-      s_ready <= m_ready;
-      m_data  <= s_data;
-      m_valid <= s_valid;
-    end if;
   end process;
 
-  p_reg : process(clk, rst_n)
-  begin
-    if ASYNC_RESET /= 0 and rst_n = '0' then
-      q.s_ready <= RST.s_ready;
-      q.m_valid <= RST.m_valid;
-      if RESET_DATA /= 0 then
-        q.s_data <= RST.s_data;
-        q.m_data <= RST.m_data;
+  b_reg : if SLICE_TYPE /= 0 generate
+    p_reg : process(clk, rst_n)
+    begin
+      if rising_edge(clk) then
+        q <= d;
       end if;
-    elsif rising_edge(clk) then
-      q <= d;
-    end if;
-  end process;
+      if ASYNC_RESET /= 0 and rst_n = '0' then
+        q.ready <= RST.ready;
+        q.valid <= RST.valid;
+        if RESET_DATA /= 0 then
+          q.data <= RST.data;
+        end if;
+        if SLICE_TYPE = C_SLICE_TYPE_PIPE then
+          q.ptr <= RST.ptr;
+        end if;
+      end if;
+    end process;
+  end generate;
 
 end architecture rtl;

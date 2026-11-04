@@ -135,11 +135,12 @@ begin
 
   p_reg : process(wclk, wrst_n)
   begin
+    if rising_edge(wclk) then
+      q <= d;
+    end if;
     if ASYNC_RESET /= 0 and wrst_n = '0' then
       q.full  <= '1';
       q.ready <= '0';
-    elsif rising_edge(wclk) then
-      q <= d;
     end if;
   end process;
 
@@ -285,11 +286,12 @@ begin
 
   p_reg : process(rclk, rrst_n)
   begin
+    if rising_edge(rclk) then
+      q <= d;
+    end if;
     if ASYNC_RESET /= 0 and rrst_n = '0' then
       q.empty <= (others => '1');
       q.valid <= (others => '0');
-    elsif rising_edge(rclk) then
-      q <= d;
     end if;
   end process;
 

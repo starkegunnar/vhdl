@@ -104,6 +104,9 @@ begin
 
   p_reg : process(clk, rst_n)
   begin
+    if rising_edge(clk) then
+      q <= d;
+    end if;
     if ASYNC_RESET /= 0 and rst_n = '0' then
       q.ptr       <= RST.ptr;
       q.s_valid_d <= RST.s_valid_d;
@@ -112,8 +115,6 @@ begin
       if RESET_DATA /= 0 then
         q.shreg <= RST.shreg;
       end if;
-    elsif rising_edge(clk) then
-      q <= d;
     end if;
   end process;
 
