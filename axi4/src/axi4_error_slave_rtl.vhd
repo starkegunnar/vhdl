@@ -179,10 +179,23 @@ begin
       rready  := '1';
     end if;
 
+    if ASYNC_RESET = 0 and aresetn = '0' then
+      v := (others => '0');
+    end if;
+
     d <= v;
 
     err_arready <= rready and err_rready;
     err_rlast   <= rlast;
+  end process;
+
+  p_reg : process(aclk, aresetn)
+  begin
+    if ASYNC_RESET /= 0 and aresetn = '0' then
+      q <= (others => '0');
+    elsif rising_edge(aclk) then
+      q <= d;
+    end if;
   end process;
 
 end architecture;

@@ -78,6 +78,19 @@ architecture rtl of axi4_demux_rtl is
 
   type t_axsel_array is array(0 to N_IDC-1) of std_logic_vector(SELW-1 downto 0);
   type t_axcounter_array is array(0 to N_IDC-1) of unsigned(CW-1 downto 0);
+  type t_axparam is record
+    sel   : std_logic_vector(SELW-1 downto 0);
+    count : unsigned(CW-1 downto 0);
+    zero  : std_logic;
+  end record;
+
+  constant axparam_reset : t_axparam := (
+    sel   => (others => '0'),
+    count => (others => '0'),
+    zero  => '1'
+  );
+
+  type t_axparam_array is array(0 to N_IDC-1) of t_axparam;
 
   -- Slice outputs
   signal axi_aw       : t_axi_ax(id(IDW-1 downto 0), addr(AW-1 downto 0), user(AWUW-1 downto 0));
@@ -102,23 +115,19 @@ architecture rtl of axi4_demux_rtl is
   signal rslv         : std_logic_vector(R_DW-1 downto 0);
 
   type t_reg is record
-    awidselects   : t_axsel_array;
-    awidcounters  : t_axcounter_array;
+    awparam       : t_axparam_array;
     wcount        : unsigned(CW-1 downto 0);
     wselect       : std_logic_vector(SELW-1 downto 0);
     wselect_valid : std_logic;
-    aridselects   : t_axsel_array;
-    aridcounters  : t_axcounter_array;
+    arparam       : t_axparam_array;
   end record;
 
   constant RST : t_reg := (
-    awidselects   => (others => (others => '0')),
-    awidcounters  => (others => (others => '0')),
+    awparam       => (others => axparam_reset),
     wcount        => (others => '0'),
     wselect       => (others => '0'),
     wselect_valid => '0',
-    aridselects   => (others => (others => '0')),
-    aridcounters  => (others => (others => '0'))
+    arparam       => (others => axparam_reset)
   );
 
   signal q, d : t_reg;
@@ -221,48 +230,49 @@ begin
 
   p_aw : process(all)
     procedure pr_idcounters(
-      axsel     : in    std_logic_vector(SELW-1 downto 0);
-      push_id   : in    std_logic_vector(IDW-1 downto 0);
-      push      : in    std_logic;
-      pop_id    : in    std_logic_vector(IDW-1 downto 0);
-      pop       : in    std_logic;
-      counters  : inout t_axcounter_array;
-      selects   : inout t_axsel_array
+      axsel   : in  std_logic_vector(SELW-1 downto 0);
+      push_id : in  std_logic_vector(IDW-1 downto 0);
+      push    : in  std_logic;
+      pop_id  : in  std_logic_vector(IDW-1 downto 0);
+      pop     : in  std_logic;
+      param_i : in  t_axparam_array;
+      param_o : out t_axparam_array
     ) is
       variable vpush : std_logic;
       variable vpop  : std_logic;
     begin
+      param_o := param_i;
       for i in 0 to N_IDC-1 loop
         vpush := f_cond(i = unsigned(push_id), push, '0');
         vpop  := f_cond(i = unsigned(pop_id), pop, '0');
-        if vpush = '1' and counters(i) = 0 then
-          selects(i) := axsel;
+        if vpush = '1' and param_i(i).zero = '1' then
+          param_o(i).sel := axsel;
         end if;
         if vpush = '1' and vpop = '0' then
-          counters(i) := counters(i) + 1;
+          param_o(i).count  := param_i(i).count + 1;
+          param_o(i).zero   := '0';
         elsif vpush = '0' and vpop = '1' then
-          counters(i) := counters(i) - 1;
+          param_o(i).count  := param_i(i).count - 1;
+          if param_i(i).count = 1 then
+            param_o(i).zero := '1';
+          end if;
         end if;
       end loop;
     end procedure;
 
     procedure pr_idsel(
-      axid      : in  std_logic_vector(IDW-1 downto 0);
-      axsel     : in  std_logic_vector(SELW-1 downto 0);
-      counters  : in  t_axcounter_array;
-      selects   : in  t_axsel_array;
-      match     : out std_logic;
-      ready     : out std_logic
+      axid    : in  std_logic_vector(IDW-1 downto 0);
+      axsel   : in  std_logic_vector(SELW-1 downto 0);
+      param   : in  t_axparam_array;
+      match   : out std_logic
     ) is
     begin
       match := '0';
-      ready := '0';
       for i in 0 to N_IDC-1 loop
         if unsigned(axid) = i then
-          if axsel = selects(i) or counters(i) = 0 then
+          if (axsel = param(i).sel and param(i).count(CW-1) = '0') or param(i).zero = '1' then
             match := '1';
           end if;
-          ready := not std_logic(counters(i)(CW-1));
         end if;
       end loop;
     end procedure;
@@ -295,7 +305,7 @@ begin
       end if;
     end loop;
 
-    pr_idsel(axi_aw.id, axi_awsel, q.awidcounters, q.awidselects, awmatch, awidready);
+    pr_idsel(axi_aw.id, axi_awsel, q.awparam, awmatch);
 
     wselect := f_cond(q.wselect_valid = '1', q.wselect, axi_awsel);
     wready  := '0';
@@ -329,12 +339,12 @@ begin
 
     bpop := axi_bvalid and axi_bready;
 
-    pr_idcounters(axi_awsel, axi_aw.id, awpush, axi_b.id, bpop, v.awidcounters, v.awidselects);
+    pr_idcounters(axi_awsel, axi_aw.id, awpush, axi_b.id, bpop, r.awparam, v.awparam);
 
     arvalid     := '0';
     arready     := '0';
 
-    pr_idsel(axi_ar.id, axi_arsel, q.aridcounters, q.aridselects, armatch, aridready);
+    pr_idsel(axi_ar.id, axi_arsel, q.arparam, armatch);
 
     if axi_arvalid = '1' and
           (aridready = '1' or armatch = '1') then
@@ -346,7 +356,7 @@ begin
 
     rpop := axi_rvalid and axi_rready and axi_r.last;
 
-    pr_idcounters(axi_arsel, axi_ar.id, arpush, axi_r.id, rpop, v.aridcounters, v.aridselects);
+    pr_idcounters(axi_arsel, axi_ar.id, arpush, axi_r.id, rpop, r.arparam, v.arparam);
 
     if ASYNC_RESET = 0 and aresetn = '0' then
       v := RST;
