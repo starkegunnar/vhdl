@@ -18,8 +18,8 @@ end entity stream_tb;
 
 architecture tb of stream_tb is
 
-  constant c_num_std_streams  : natural := 5;
-  constant c_num_arb_streams  : natural := 3;
+  constant c_num_std_streams  : natural := 6;
+  constant c_num_arb_streams  : natural := 0;
   constant c_num_streams      : natural := c_num_std_streams+c_num_arb_streams;
   constant c_num_test_data    : natural := 256;
   constant c_s                : natural := c_num_std_streams;
@@ -55,10 +55,10 @@ architecture tb of stream_tb is
   signal streams_in   : t_streams := (others => (n => 0, s_data => (others => '0'), s_valid => '0', s_ready => '0', m_data => (others => '0'), m_valid => '0', m_ready => '0'));
   signal test_data    : t_slv_array(c_num_test_data-1 downto 0)(7 downto 0);
 
-  signal req          : std_logic_vector(c_a-1 downto 0);
-  signal gnt          : std_logic_vector(c_a-1 downto 0);
-  signal ack          : std_logic_vector(c_a-1 downto 0);
-  signal gnt_index    : std_logic_vector(f_log2(c_a)-1 downto 0);
+--  signal req          : std_logic_vector(c_a-1 downto 0);
+--  signal gnt          : std_logic_vector(c_a-1 downto 0);
+--  signal ack          : std_logic_vector(c_a-1 downto 0);
+--  signal gnt_index    : std_logic_vector(f_log2(c_a)-1 downto 0);
 
 begin
 
@@ -195,7 +195,7 @@ begin
   )
   port map (
     clk     => tb_clk,
-    rst_n   => tb_rst,
+    rstn    => tb_rst,
     s_data  => streams_in(0).s_data,
     s_valid => streams_in(0).s_valid,
     s_ready => streams_in(0).s_ready,
@@ -204,14 +204,14 @@ begin
     m_ready => streams_in(0).m_ready
   );
 
-  i_dut_pipe : entity lib_common.reg_slice_pipe(rtl)
+  i_dut_pipe : entity lib_common.reg_slice(rtl)
   generic map (
     DW          => 8,
     SLICE_TYPE  => C_SLICE_TYPE_PIPE
   )
   port map (
     clk     => tb_clk,
-    rst_n   => tb_rst,
+    rstn    => tb_rst,
     s_data  => streams_in(1).s_data,
     s_valid => streams_in(1).s_valid,
     s_ready => streams_in(1).s_ready,
@@ -220,14 +220,14 @@ begin
     m_ready => streams_in(1).m_ready
   );
 
-  i_dut_spill : entity lib_common.reg_slice_spill(rtl)
+  i_dut_spill : entity lib_common.reg_slice(rtl)
   generic map (
     DW          => 8,
     SLICE_TYPE  => C_SLICE_TYPE_REG_IN
   )
   port map (
     clk     => tb_clk,
-    rst_n   => tb_rst,
+    rstn    => tb_rst,
     s_data  => streams_in(2).s_data,
     s_valid => streams_in(2).s_valid,
     s_ready => streams_in(2).s_ready,
@@ -242,12 +242,12 @@ begin
   )
   port map (
     s_clk   => tb_clk,
-    s_rst_n => tb_rst,
+    s_rstn  => tb_rst,
     s_data  => streams_in(3).s_data,
     s_valid => streams_in(3).s_valid,
     s_ready => streams_in(3).s_ready,
     m_clk   => tb_clk,
-    m_rst_n => tb_rst,
+    m_rstn  => tb_rst,
     m_data  => streams_in(3).m_data,
     m_valid => streams_in(3).m_valid,
     m_ready => streams_in(3).m_ready
@@ -256,7 +256,7 @@ begin
   i_dut_fifo : entity lib_common.fifo(rtl)
   generic map (
     DW            => 8,
-    DEPTH         => 32,
+    DEPTH         => 29,
     FWFT          => 1,
     READ_LATENCY  => 1,
     COMMON_CLK    => 1,
@@ -264,60 +264,82 @@ begin
   )
   port map (
     wclk      => tb_clk,
-    wrst_n    => tb_rst,
+    wrstn     => tb_rst,
     wdata     => streams_in(4).s_data,
     we        => streams_in(4).s_valid,
     wready    => streams_in(4).s_ready,
     rclk      => tb_clk,
-    rrst_n    => tb_rst,
+    rrstn     => tb_rst,
     rdata     => streams_in(4).m_data,
     ren       => streams_in(4).m_ready,
     rvalid    => streams_in(4).m_valid
   );
 
-
-  b_req : for i in 0 to c_a-1 generate
-    req(i) <= streams_in(c_s+i).s_valid;
-    ack(i) <= streams_in(c_s+i).s_valid and streams_in(c_s+i).s_ready and gnt(i);
-  end generate;
-
-  --i_arbiter : entity lib_common.arbiter(rtl)
-  --generic map (
-  --  WIDTH  => c_num_arb_streams
-  --)
-  --port map (
-  --  clk         => tb_clk,
-  --  rst_n       => tb_rst,
-  --  req         => req,
-  --  ack         => ack,
-  --  grant       => gnt,
-  --  grant_valid => open,
-  --  grant_index => gnt_index
-  --);
-  i_arbiter_tree : entity lib_common.arbiter_tree(rtl)
+  i_dut_fifo_async : entity lib_common.fifo(rtl)
   generic map (
-    N_REQ       => c_num_arb_streams,
-    DW          => 8,
-    ARB_PRIO    => 2,
-    ARB_LOCK    => 1,
-    ASYNC_RESET => 0
+    DW            => 8,
+    DEPTH         => 32,
+    FWFT          => 1,
+    READ_LATENCY  => 1,
+    COMMON_CLK    => 0,
+    ASYNC_RESET   => 0
   )
   port map (
-    clk       => tb_clk,
-    rst_n     => tb_rst,
-    ext_prio  => (others => '0'),
-    ireq      => req,
-    idata     => (others => (others => '0')),
-    ognt      => gnt,
-    oreq      => open,
-    ignt      => streams_in(c_s+to_integer(unsigned(gnt_index))).m_ready,
-    oidx      => gnt_index
+    wclk      => tb_clk,
+    wrstn     => tb_rst,
+    wdata     => streams_in(5).s_data,
+    we        => streams_in(5).s_valid,
+    wready    => streams_in(5).s_ready,
+    rclk      => tb_clk,
+    rrstn     => tb_rst,
+    rdata     => streams_in(5).m_data,
+    ren       => streams_in(5).m_ready,
+    rvalid    => streams_in(5).m_valid
   );
 
-  b_gnt : for i in 0 to c_a-1 generate
-    streams_in(c_s+i).m_valid <= streams_in(c_s+i).s_valid and gnt(i);
-    streams_in(c_s+i).m_data  <= streams_in(c_s+i).s_data;
-    streams_in(c_s+i).s_ready <= streams_in(c_s+i).m_ready and gnt(i);
-  end generate;
+
+  -- b_req : for i in 0 to c_a-1 generate
+  --   req(i) <= streams_in(c_s+i).s_valid;
+  --   ack(i) <= streams_in(c_s+i).s_valid and streams_in(c_s+i).s_ready and gnt(i);
+  -- end generate;
+
+  -- --i_arbiter : entity lib_common.arbiter(rtl)
+  -- --generic map (
+  -- --  WIDTH  => c_num_arb_streams
+  -- --)
+  -- --port map (
+  -- --  clk         => tb_clk,
+  -- --  rstn        => tb_rst,
+  -- --  req         => req,
+  -- --  ack         => ack,
+  -- --  grant       => gnt,
+  -- --  grant_valid => open,
+  -- --  grant_index => gnt_index
+  -- --);
+  -- i_arbiter_tree : entity lib_common.arbiter_tree(rtl)
+  -- generic map (
+  --   N_REQ       => c_num_arb_streams,
+  --   DW          => 8,
+  --   ARB_PRIO    => 2,
+  --   ARB_LOCK    => 1,
+  --   ASYNC_RESET => 0
+  -- )
+  -- port map (
+  --   clk       => tb_clk,
+  --   rstn      => tb_rst,
+  --   ext_prio  => (others => '0'),
+  --   ireq      => req,
+  --   idata     => (others => (others => '0')),
+  --   ognt      => gnt,
+  --   oreq      => open,
+  --   ignt      => streams_in(c_s+to_integer(unsigned(gnt_index))).m_ready,
+  --   oidx      => gnt_index
+  -- );
+
+  -- b_gnt : for i in 0 to c_a-1 generate
+  --   streams_in(c_s+i).m_valid <= streams_in(c_s+i).s_valid and gnt(i);
+  --   streams_in(c_s+i).m_data  <= streams_in(c_s+i).s_data;
+  --   streams_in(c_s+i).s_ready <= streams_in(c_s+i).m_ready and gnt(i);
+  -- end generate;
 
 end architecture tb;

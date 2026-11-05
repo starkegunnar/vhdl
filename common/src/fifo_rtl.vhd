@@ -15,7 +15,7 @@ entity fifo_write_ctrl is
   );
   port (
     wclk    : in  std_logic;
-    wrst_n  : in  std_logic;
+    wrstn   : in  std_logic;
     we      : in  std_logic;
     wfull   : out std_logic;
     wready  : out std_logic;
@@ -26,19 +26,10 @@ end entity fifo_write_ctrl;
 
 architecture rtl of fifo_write_ctrl is
 
-  function f_full_mask return std_logic_vector is
-    variable msk : std_logic_vector(f_log2(DEPTH) downto 0);
-  begin
-    msk := std_logic_vector(to_unsigned(2**(f_log2(DEPTH)-1), msk'length));
-    if COMMON_CLK = 0 then
-      msk := msk or std_logic_vector(to_unsigned(2**(f_log2(DEPTH)-2), msk'length));
-    end if;
-    return msk;
-  end function;
-
   constant CW         : integer := f_log2(DEPTH)+1;
   constant AW         : integer := CW-1;
-  constant FULL_MASK  : std_logic_vector(CW-1 downto 0) := f_full_mask;
+  constant FM         : integer := 2**(f_log2(DEPTH)) + (1-COMMON_CLK) * (2**(f_log2(DEPTH)-1));
+  constant FULL_MASK  : std_logic_vector(CW-1 downto 0) := std_logic_vector(to_unsigned(FM, CW));
 
   type t_reg is record
     full  : std_logic;
@@ -53,23 +44,23 @@ begin
 
   gen_counters : for i in 0 to 1 generate
     gen_counter : if COMMON_CLK /= 0 generate
-      i_counter : entity lib_common.up_down_counter(rtl)
+      i_counter : counter
       generic map (
-        WIDTH       => CW,
-        ASYNC_RESET => ASYNC_RESET,
-        RESET_VAL   => std_logic_vector(to_unsigned(i, CW))
+        WIDTH       => AW,
+        MAX_VALUE   => std_logic_vector(to_unsigned(DEPTH-1, AW)),
+        RESET_VAL   => std_logic_vector(to_unsigned(i, AW)),
+        ASYNC_RESET => ASYNC_RESET
       )
       port map (
         clk   => wclk,
-        rstn  => wrst_n,
-        en    => we,
-        up    => wready,
-        down  => '0',
-        count => counters(i)
+        rstn  => wrstn,
+        en    => we and wready,
+        count => counters(i)(AW-1 downto 0),
+        wrap  => counters(i)(AW)
       );
     end generate gen_counter;
     gen_gray_counter : if COMMON_CLK = 0 generate
-      i_gray_counter : entity lib_common.gray_counter(rtl)
+      i_gray_counter : gray_counter
       generic map (
         WIDTH       => CW,
         ASYNC_RESET => ASYNC_RESET,
@@ -77,7 +68,7 @@ begin
       )
       port map (
         clk   => wclk,
-        rst_n => wrst_n,
+        rstn  => wrstn,
         clear => '0',
         en    => we and not wfull,
         count => counters(i)
@@ -86,7 +77,7 @@ begin
   end generate gen_counters;
 
   gen_rptr_sync : if COMMON_CLK = 0 generate
-    i_cdc_sync : entity lib_common.cdc_sync(rtl)
+    i_cdc_sync : cdc_sync
     generic map (
       WIDTH     => CW,
       CDC_TYPE  => "cdc_gray",
@@ -121,7 +112,7 @@ begin
     v.full  := going_full or full;
     v.ready := going_full nor full;
 
-    if ASYNC_RESET = 0 and wrst_n = '0' then
+    if ASYNC_RESET = 0 and wrstn = '0' then
       v.full  := '1';
       v.ready := '0';
     end if;
@@ -133,12 +124,12 @@ begin
     wptr    <= counters(0);
   end process;
 
-  p_reg : process(wclk, wrst_n)
+  p_reg : process(wclk, wrstn)
   begin
     if rising_edge(wclk) then
       q <= d;
     end if;
-    if ASYNC_RESET /= 0 and wrst_n = '0' then
+    if ASYNC_RESET /= 0 and wrstn = '0' then
       q.full  <= '1';
       q.ready <= '0';
     end if;
@@ -165,7 +156,7 @@ entity fifo_read_ctrl is
   );
   port (
     rclk    : in  std_logic;
-    rrst_n  : in  std_logic;
+    rrstn   : in  std_logic;
     ren     : in  std_logic;
     rempty  : out std_logic;
     rvalid  : out std_logic;
@@ -177,8 +168,8 @@ end entity fifo_read_ctrl;
 
 architecture rtl of fifo_read_ctrl is
 
-  constant CW : integer := f_log2(DEPTH)+1;
-  constant AW : integer := CW-1;
+  constant CW   : integer := f_log2(DEPTH)+1;
+  constant AW   : integer := CW-1;
 
   type t_reg is record
     empty : std_logic_vector(0 to 1);
@@ -193,23 +184,23 @@ begin
 
   gen_counters : for i in 0 to 1 generate
     gen_counter : if COMMON_CLK /= 0 generate
-      i_counter : entity lib_common.up_down_counter(rtl)
+      i_counter : counter
       generic map (
-        WIDTH       => CW,
-        ASYNC_RESET => ASYNC_RESET,
-        RESET_VAL   => std_logic_vector(to_unsigned(i, CW))
+        WIDTH       => AW,
+        MAX_VALUE   => std_logic_vector(to_unsigned(DEPTH-1, AW)),
+        RESET_VAL   => std_logic_vector(to_unsigned(i, AW)),
+        ASYNC_RESET => ASYNC_RESET
       )
       port map (
         clk   => rclk,
-        rstn  => rrst_n,
-        en    => ren,
-        up    => q.valid(0),
-        down  => '0',
-        count => counters(i)
+        rstn  => rrstn,
+        en    => ren and q.valid(0),
+        count => counters(i)(AW-1 downto 0),
+        wrap  => counters(i)(AW)
       );
     end generate gen_counter;
     gen_gray_counter : if COMMON_CLK = 0 generate
-      i_gray_counter : entity lib_common.gray_counter(rtl)
+      i_gray_counter : gray_counter
       generic map (
         WIDTH       => CW,
         ASYNC_RESET => ASYNC_RESET,
@@ -217,7 +208,7 @@ begin
       )
       port map (
         clk   => rclk,
-        rst_n => rrst_n,
+        rstn  => rrstn,
         clear => '0',
         en    => ren and not q.empty(0),
         count => counters(i)
@@ -226,7 +217,7 @@ begin
   end generate gen_counters;
 
   gen_wptr_sync : if COMMON_CLK = 0 generate
-    i_cdc_sync : entity lib_common.cdc_sync(rtl)
+    i_cdc_sync : cdc_sync
     generic map (
       WIDTH     => CW,
       CDC_TYPE  => "cdc_gray",
@@ -253,8 +244,7 @@ begin
     if counters(0) = wptr_sync then
       empty := '1';
     end if;
-    if ((COMMON_CLK = 0 and counters(1)(AW-1 downto 0) = wptr_sync(AW-1 downto 0)) or
-        (COMMON_CLK /= 0 and counters(1) = wptr_sync)) then
+    if counters(1) = wptr_sync then
       going_empty := ren;
     end if;
 
@@ -266,7 +256,7 @@ begin
       v.valid(1)  := q.valid(0);
     end if;
 
-    if ASYNC_RESET = 0 and rrst_n = '0' then
+    if ASYNC_RESET = 0 and rrstn = '0' then
       v.empty := (others => '1');
       v.valid := (others => '0');
     end if;
@@ -284,12 +274,12 @@ begin
     rptr <= counters(0);
   end process;
 
-  p_reg : process(rclk, rrst_n)
+  p_reg : process(rclk, rrstn)
   begin
     if rising_edge(rclk) then
       q <= d;
     end if;
-    if ASYNC_RESET /= 0 and rrst_n = '0' then
+    if ASYNC_RESET /= 0 and rrstn = '0' then
       q.empty <= (others => '1');
       q.valid <= (others => '0');
     end if;
@@ -316,13 +306,13 @@ entity fifo is
   );
   port (
     wclk    : in  std_logic;
-    wrst_n  : in  std_logic;
+    wrstn   : in  std_logic;
     wdata   : in  std_logic_vector(DW-1 downto 0);
     we      : in  std_logic;
     wfull   : out std_logic;
     wready  : out std_logic;
     rclk    : in  std_logic;
-    rrst_n  : in  std_logic;
+    rrstn   : in  std_logic;
     rdata   : out std_logic_vector(DW-1 downto 0);
     ren     : in  std_logic;
     rempty  : out std_logic;
@@ -334,6 +324,8 @@ architecture rtl of fifo is
 
   constant CW : integer := f_log2(DEPTH)+1;
   constant AW : integer := CW-1;
+  -- Async FIFO must have a depth which is a power of two
+  constant FD : integer := COMMON_CLK*DEPTH+(1-COMMON_CLK)*2**AW;
 
   signal wptr, rptr   : std_logic_vector(CW-1 downto 0);
   signal waddr, raddr : std_logic_vector(AW-1 downto 0);
@@ -347,14 +339,14 @@ begin
   i_write_ctrl : entity lib_common.fifo_write_ctrl(rtl)
   generic map (
     DW          => DW,
-    DEPTH       => DEPTH,
+    DEPTH       => FD,
     COMMON_CLK  => COMMON_CLK,
     SYNC_FF     => SYNC_FF,
     ASYNC_RESET => ASYNC_RESET
   )
   port map (
     wclk    => wclk,
-    wrst_n  => wrst_n,
+    wrstn   => wrstn,
     we      => we,
     wfull   => wfull,
     wready  => wready,
@@ -367,10 +359,10 @@ begin
   raddr <= f_gray2bin(rptr)(AW-1 downto 0) when COMMON_CLK = 0 else
            rptr(AW-1 downto 0);
 
-  i_sdpram : entity lib_common.sdpram(rtl)
+  i_sdpram : sdpram
   generic map (
     AW            => AW,
-    DEPTH         => DEPTH,
+    DEPTH         => FD,
     DW            => DW,
     COMMON_CLK    => COMMON_CLK,
     READ_LATENCY  => READ_LATENCY
@@ -387,12 +379,12 @@ begin
   );
 
   rclk_int    <= wclk when COMMON_CLK = 0 else rclk;
-  rrst_n_int  <= wrst_n when COMMON_CLK = 0 else rrst_n;
+  rrst_n_int  <= wrstn when COMMON_CLK = 0 else rrstn;
 
   i_read_ctrl : entity lib_common.fifo_read_ctrl(rtl)
   generic map (
     DW            => DW,
-    DEPTH         => DEPTH,
+    DEPTH         => FD,
     FWFT          => FWFT,
     READ_LATENCY  => READ_LATENCY,
     COMMON_CLK    => COMMON_CLK,
@@ -401,7 +393,7 @@ begin
   )
   port map (
     rclk    => rclk,
-    rrst_n  => rrst_n,
+    rrstn   => rrstn,
     ren     => ren_int,
     rempty  => rempty,
     rvalid  => rvalid,

@@ -157,7 +157,252 @@ package common_pkg is
     signal empty  : out std_logic
   );
 
-  
+  component counter is
+    generic (
+      WIDTH       : integer;
+      MAX_VALUE   : std_logic_vector(WIDTH-1 downto 0) := (others => '1');
+      RESET_VAL   : std_logic_vector(WIDTH-1 downto 0) := (others => '0');
+      ASYNC_RESET : integer range 0 to 1 := 0
+    );
+    port (
+      clk   : in  std_logic;
+      rstn  : in  std_logic;
+      clear : in  std_logic := '0';
+      en    : in  std_logic;
+      count : out std_logic_vector(WIDTH-1 downto 0);
+      wrap  : out std_logic;
+      zero  : out std_logic
+    );
+  end component counter;
+
+  component up_down_counter is
+    generic (
+      WIDTH       : integer;
+      ASYNC_RESET : integer range 0 to 1 := 0;
+      RESET_VAL   : std_logic_vector(WIDTH-1 downto 0) := (others => '0')
+    );
+    port (
+      clk   : in  std_logic;
+      rstn  : in  std_logic;
+      clear : in  std_logic := '0';
+      en    : in  std_logic;
+      up    : in  std_logic;
+      down  : in  std_logic;
+      delta : in  std_logic_vector(WIDTH-1 downto 0) := std_logic_vector(to_unsigned(1, WIDTH));
+      count : out std_logic_vector(WIDTH-1 downto 0);
+      zero  : out std_logic
+    );
+  end component up_down_counter;
+
+  component gray_counter is
+    generic (
+      WIDTH       : integer;
+      RESET_VAL   : std_logic_vector(WIDTH-1 downto 0) := (others => '0');
+      ASYNC_RESET : integer range 0 to 1 := 0
+    );
+    port (
+      clk   : in  std_logic;
+      rstn  : in  std_logic;
+      clear : in  std_logic := '0';
+      en    : in  std_logic;
+      count : out std_logic_vector(WIDTH-1 downto 0)
+    );
+  end component gray_counter;
+
+  component cdc_sync is
+    generic (
+      WIDTH     : integer;
+      CDC_TYPE  : string := "cdc_sync";
+      SYNC_FF   : integer range 2 to 15 := 2;
+      RESET_VAL : std_logic := '0'
+    );
+    port (
+      clk   : in  std_logic;
+      rstn  : in  std_logic := '1';
+      d     : in  std_logic_vector(WIDTH-1 downto 0);
+      q     : out std_logic_vector(WIDTH-1 downto 0)
+    );
+  end component cdc_sync;
+
+  component reg_slice is
+    generic (
+      DW          : integer;
+      SLICE_TYPE  : integer range 0 to 3 := 1; -- 0 -> Passthrough, no slice
+                                               -- 1 -> Registered output
+                                               -- 2 -> Registered input
+                                               -- 3 -> Registered input pipe
+      RESET_DATA  : integer range 0 to 1 := 0;
+      ASYNC_RESET : integer range 0 to 1 := 0;
+      LOW_FANOUT  : integer range 0 to 1 := 0
+    );
+    port (
+      -- Clock and reset
+      clk     : in  std_logic;
+      rstn    : in  std_logic;
+      -- Data and flow control
+      s_data  : in  std_logic_vector(DW-1 downto 0);
+      s_valid : in  std_logic;
+      s_ready : out std_logic;
+      m_data  : out std_logic_vector(DW-1 downto 0);
+      m_valid : out std_logic;
+      m_ready : in  std_logic
+    );
+  end component reg_slice;
+
+  component arbiter_tree is
+    generic (
+      N           : positive := 7;
+      DW          : integer := 8;
+      ARB_PRIO    : integer range 0 to 2 := 2; -- 0 -> External prio, 1 -> Rotate prio, -> Round robin
+      ARB_LOCK    : integer range 0 to 1 := 0;
+      ASYNC_RESET : integer range 0 to 1 := 0
+    );
+    port (
+      clk       : in  std_logic;
+      rstn      : in  std_logic;
+      ext_prio  : in  std_logic_vector(f_log2nz(N)-1 downto 0) := (others => '0');
+      s_data    : in  t_slv_array(N-1 downto 0)(DW-1 downto 0);
+      s_valid   : in  std_logic_vector(N-1 downto 0);
+      s_ready   : out std_logic_vector(N-1 downto 0);
+      m_data    : out std_logic_vector(DW-1 downto 0);
+      m_id      : out std_logic_vector(f_log2nz(N)-1 downto 0);
+      m_valid   : out std_logic;
+      m_ready   : in  std_logic
+    );
+  end component arbiter_tree;
+
+  component spram is
+    generic (
+      AW        : integer;
+      DEPTH     : integer := 0;
+      DW        : integer;
+      RAM_MODE  : integer range RAM_READ_FIRST to RAM_NO_CHANGE := RAM_READ_FIRST;
+      INIT_FILE : string := ""
+    );
+    port (
+      clk   : in  std_logic;
+      en    : in  std_logic;
+      addr  : in  std_logic_vector(AW-1 downto 0);
+      we    : in  std_logic;
+      din   : in  std_logic_vector(DW-1 downto 0);
+      dout  : out std_logic_vector(DW-1 downto 0)
+    );
+  end component spram;
+
+  component spram_be is
+    generic (
+      AW        : integer;
+      DEPTH     : integer := 0;
+      COLW      : integer;
+      N_COL     : integer;
+      RAM_MODE  : integer range RAM_READ_FIRST to RAM_NO_CHANGE := RAM_READ_FIRST;
+      INIT_FILE : string := ""
+    );
+    port (
+      clk   : in  std_logic;
+      en    : in  std_logic;
+      addr  : in  std_logic_vector(AW-1 downto 0);
+      we    : in  std_logic_vector(N_COL-1 downto 0);
+      din   : in  std_logic_vector(N_COL*COLW-1 downto 0);
+      dout  : out std_logic_vector(N_COL*COLW-1 downto 0)
+    );
+  end component spram_be;
+
+  component sdpram is
+    generic (
+      AW            : integer;
+      DEPTH         : integer := 0;
+      DW            : integer;
+      COMMON_CLK    : integer range 0 to 1;
+      READ_LATENCY  : integer range 0 to 1 := 1;
+      INIT_FILE     : string := ""
+    );
+    port (
+      wclk    : in  std_logic;
+      waddr   : in  std_logic_vector(AW-1 downto 0);
+      we      : in  std_logic;
+      wdata   : in  std_logic_vector(DW-1 downto 0);
+      rclk    : in  std_logic;
+      raddr   : in  std_logic_vector(AW-1 downto 0);
+      rden    : in  std_logic := '1';
+      rdata   : out std_logic_vector(DW-1 downto 0)
+    );
+  end component sdpram;
+
+  component sdpram_be is
+    generic (
+      AW            : integer;
+      DEPTH         : integer := 0;
+      COLW          : integer;
+      N_COL         : integer;
+      COMMON_CLK    : integer range 0 to 1;
+      READ_LATENCY  : integer range 0 to 1;
+      INIT_FILE     : string := ""
+    );
+    port (
+      wclk    : in  std_logic;
+      waddr   : in  std_logic_vector(AW-1 downto 0);
+      we      : in  std_logic_vector(N_COL-1 downto 0);
+      wdata   : in  std_logic_vector(N_COL*COLW-1 downto 0);
+      rclk    : in  std_logic;
+      raddr   : in  std_logic_vector(AW-1 downto 0);
+      rden    : in  std_logic;
+      rdata   : out std_logic_vector(N_COL*COLW-1 downto 0)
+    );
+  end component sdpram_be;
+
+  component tdpram is
+    generic (
+      AW          : integer;
+      DEPTH       : integer := 0;
+      DW          : integer;
+      COMMON_CLK  : integer range 0 to 1;
+      RAM_MODE_A  : integer range RAM_READ_FIRST to RAM_NO_CHANGE := RAM_READ_FIRST;
+      RAM_MODE_B  : integer range RAM_READ_FIRST to RAM_NO_CHANGE := RAM_READ_FIRST;
+      INIT_FILE   : string := ""
+    );
+    port (
+      clka    : in  std_logic;
+      ena     : in  std_logic;
+      addra   : in  std_logic_vector(AW-1 downto 0);
+      wea     : in  std_logic;
+      dina    : in  std_logic_vector(DW-1 downto 0);
+      douta   : out std_logic_vector(DW-1 downto 0);
+      clkb    : in  std_logic;
+      enb     : in  std_logic;
+      addrb   : in  std_logic_vector(AW-1 downto 0);
+      web     : in  std_logic;
+      dinb    : in  std_logic_vector(DW-1 downto 0);
+      doutb   : out std_logic_vector(DW-1 downto 0)
+    );
+  end component tdpram;
+
+  component tdpram_be is
+    generic (
+      AW          : integer;
+      DEPTH       : integer := 0;
+      COLW        : integer;
+      N_COL       : integer;
+      COMMON_CLK  : integer range 0 to 1;
+      RAM_MODE_A  : integer range RAM_READ_FIRST to RAM_NO_CHANGE := RAM_READ_FIRST;
+      RAM_MODE_B  : integer range RAM_READ_FIRST to RAM_NO_CHANGE := RAM_READ_FIRST;
+      INIT_FILE   : string := ""
+    );
+    port (
+      clka    : in  std_logic;
+      ena     : in  std_logic;
+      addra   : in  std_logic_vector(AW-1 downto 0);
+      wea     : in  std_logic_vector(N_COL-1 downto 0);
+      dina    : in  std_logic_vector(N_COL*COLW-1 downto 0);
+      douta   : out std_logic_vector(N_COL*COLW-1 downto 0);
+      clkb    : in  std_logic;
+      enb     : in  std_logic;
+      addrb   : in  std_logic_vector(AW-1 downto 0);
+      web     : in  std_logic_vector(N_COL-1 downto 0);
+      dinb    : in  std_logic_vector(N_COL*COLW-1 downto 0);
+      doutb   : out std_logic_vector(N_COL*COLW-1 downto 0)
+    );
+  end component tdpram_be;
 
 end package common_pkg;
 

@@ -35,7 +35,7 @@ architecture rtl of tdpram is
 
 begin
 
-  i_tdpram : entity lib_common.tdpram_be(rtl)
+  i_tdpram : tdpram_be
   generic map (
     AW            => AW,
     DEPTH         => DEPTH,

@@ -9,20 +9,23 @@ LIBRARY_NAME = lib_common
 
 SOURCES_VHDL = \
 	$(COMPONENT_DIR)/src/common_pkg.vhd \
+	$(COMPONENT_DIR)/src/counter_rtl.vhd \
 	$(COMPONENT_DIR)/src/up_down_counter_rtl.vhd \
 	$(COMPONENT_DIR)/src/gray_counter_rtl.vhd \
+	$(COMPONENT_DIR)/src/spram_be_rtl.vhd \
+	$(COMPONENT_DIR)/src/spram_rtl.vhd \
 	$(COMPONENT_DIR)/src/tdpram_be_rtl.vhd \
 	$(COMPONENT_DIR)/src/tdpram_rtl.vhd \
 	$(COMPONENT_DIR)/src/sdpram_be_rtl.vhd \
 	$(COMPONENT_DIR)/src/sdpram_rtl.vhd \
 	$(COMPONENT_DIR)/src/cdc_sync_rtl.vhd \
 	$(COMPONENT_DIR)/src/fallthrough_reg_rtl.vhd \
-	$(COMPONENT_DIR)/src/fifo_srl_rtl.vhd \
 	$(COMPONENT_DIR)/src/fifo_rtl.vhd \
 	$(COMPONENT_DIR)/src/reg_slice_rtl.vhd \
 	$(COMPONENT_DIR)/src/arbiter_rtl.vhd \
 	$(COMPONENT_DIR)/src/arbiter_tree_rtl.vhd \
 	$(COMPONENT_DIR)/src/cdc_4phase_rtl.vhd \
+#	$(COMPONENT_DIR)/src/fifo_srl_rtl.vhd \
 #	$(COMPONENT_DIR)/src/cdc_2phase_rtl.vhd \
 #	$(COMPONENT_DIR)/src/cdc_gray_rtl.vhd \
 #	$(COMPONENT_DIR)/src/arbiter_tree_rtl.vhd \

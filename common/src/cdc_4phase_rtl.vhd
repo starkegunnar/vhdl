@@ -2,6 +2,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 
 library lib_common;
+use lib_common.common_pkg.all;
 
 entity cdc_4phase_src is
   generic (
@@ -12,7 +13,7 @@ entity cdc_4phase_src is
   port (
     -- Source clock and reset
     clk         : in  std_logic;
-    rst_n       : in  std_logic;
+    rstn        : in  std_logic;
     -- Source data and flow control
     s_data      : in  std_logic_vector(DW-1 downto 0);
     s_valid     : in  std_logic;
@@ -47,7 +48,7 @@ begin
 
   i_ack_sync : entity lib_common.cdc_sync(rtl)
     generic map (WIDTH => 1, SYNC_FF => SYNC_FF)
-    port map (clk => clk, rst_n => rst_n, d(0) => async_ack, q(0) => ack);
+    port map (clk => clk, rstn => rstn, d(0) => async_ack, q(0) => ack);
 
   p_comb : process(all)
     variable v      : t_reg;
@@ -90,9 +91,9 @@ begin
     async_req   <= q.req;
   end process;
 
-  p_reg : process(clk, rst_n)
+  p_reg : process(clk, rstn)
   begin
-    if rst_n = '0' then
+    if rstn = '0' then
       q <= RST;
     elsif rising_edge(clk) then
       q <= d;
@@ -105,6 +106,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 
 library lib_common;
+use lib_common.common_pkg.all;
 
 entity cdc_4phase_dst is
   generic (
@@ -116,7 +118,7 @@ entity cdc_4phase_dst is
   port (
     -- Destination clock and reset
     clk         : in  std_logic;
-    rst_n       : in  std_logic;
+    rstn        : in  std_logic;
     -- Destination data and flow control
     m_data      : out std_logic_vector(DW-1 downto 0);
     m_valid     : out std_logic;
@@ -151,7 +153,7 @@ begin
 
   i_req_sync : entity lib_common.cdc_sync(rtl)
     generic map (WIDTH => 1, SYNC_FF => SYNC_FF)
-    port map (clk => clk, rst_n => rst_n, d(0) => async_req, q(0) => req);
+    port map (clk => clk, rstn => rstn, d(0) => async_req, q(0) => req);
 
   p_comb : process(all)
     variable v      : t_reg;
@@ -193,9 +195,9 @@ begin
     async_ack <= q.ack;
   end process;
 
-  p_reg : process(clk, rst_n)
+  p_reg : process(clk, rstn)
   begin
-    if rst_n = '0' then
+    if rstn = '0' then
       q <= RST;
     elsif rising_edge(clk) then
       q <= d;
@@ -203,15 +205,16 @@ begin
   end process;
 
   gen_slice : if SLICE_OUPUT /= 0 generate
-    i_slice : entity lib_common.reg_slice_spill(rtl)
+    i_slice : entity lib_common.reg_slice(rtl)
       generic map (
         DW          => DW,
+        SLICE_TYPE  => C_SLICE_TYPE_REG_IN,
         RESET_DATA  => RESET_DATA,
         ASYNC_RESET => 1
       )
       port map (
         clk     => clk,
-        rst_n   => rst_n,
+        rstn    => rstn,
         s_data  => async_data,
         s_valid => valid_out,
         s_ready => ready,
@@ -233,6 +236,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 
 library lib_common;
+use lib_common.common_pkg.all;
 
 entity cdc_4phase is
   generic (
@@ -245,14 +249,14 @@ entity cdc_4phase is
   port (
     -- Source clock and reset
     s_clk   : in  std_logic;
-    s_rst_n : in  std_logic;
+    s_rstn  : in  std_logic;
     -- Source data and flow control
     s_data  : in  std_logic_vector(DW-1 downto 0);
     s_valid : in  std_logic;
     s_ready : out std_logic;
     -- Destination clock and reset
     m_clk   : in  std_logic;
-    m_rst_n : in  std_logic;
+    m_rstn  : in  std_logic;
     -- Destination data and flow control
     m_data  : out std_logic_vector(DW-1 downto 0);
     m_valid : out std_logic;
@@ -276,7 +280,7 @@ begin
     )
     port map (
       clk         => s_clk,
-      rst_n       => s_rst_n,
+      rstn        => s_rstn,
       s_data      => s_data,
       s_valid     => s_valid,
       s_ready     => s_ready,
@@ -294,7 +298,7 @@ begin
     )
     port map (
       clk         => m_clk,
-      rst_n       => m_rst_n,
+      rstn        => m_rstn,
       m_data      => m_data,
       m_valid     => m_valid,
       m_ready     => m_ready,

@@ -13,7 +13,7 @@ entity cdc_sync is
   );
   port (
     clk   : in  std_logic;
-    rst_n : in  std_logic := '1';
+    rstn  : in  std_logic := '1';
     d     : in  std_logic_vector(WIDTH-1 downto 0);
     q     : out std_logic_vector(WIDTH-1 downto 0)
   );
@@ -25,8 +25,8 @@ architecture rtl of cdc_sync is
 
   signal q_sync : t_slv_array(SYNC_FF-1 downto 0)(WIDTH-1 downto 0);
 
-  attribute CDC_TYPE : string;
-  attribute CDC_TYPE of rtl : architecture is CDC_TYPE;
+  attribute CDC_SYNC_TYPE : string;
+  attribute CDC_SYNC_TYPE of rtl : architecture is CDC_TYPE;
 
   attribute DONT_TOUCH : string;
   attribute DONT_TOUCH of rtl : architecture is "yes";
@@ -36,9 +36,9 @@ architecture rtl of cdc_sync is
 
 begin
 
-  p_reg : process(clk, rst_n)
+  p_reg : process(clk, rstn)
   begin
-    if rst_n = '0' then
+    if rstn = '0' then
       q_sync <= RST;
     elsif rising_edge(clk) then
       q_sync <= q_sync(SYNC_FF-2 downto 0) & d;

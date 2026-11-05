@@ -30,7 +30,7 @@ architecture rtl of sdpram is
 
 begin
 
-  i_sdpram_be : entity lib_common.sdpram_be(rtl)
+  i_sdpram_be : sdpram_be
   generic map (
     AW            => AW,
     DEPTH         => DEPTH,
