@@ -330,9 +330,8 @@ architecture rtl of fifo is
   signal wptr, rptr   : std_logic_vector(CW-1 downto 0);
   signal waddr, raddr : std_logic_vector(AW-1 downto 0);
 
-  signal rclk_int     : std_logic;
-  signal rrst_n_int   : std_logic;
-  signal ren_int      : std_logic;
+  signal wrstn_int : std_logic;
+  signal rrstn_int : std_logic;
 
 begin
 
@@ -346,7 +345,7 @@ begin
   )
   port map (
     wclk    => wclk,
-    wrstn   => wrstn,
+    wrstn   => wrstn_int,
     we      => we,
     wfull   => wfull,
     wready  => wready,
@@ -378,8 +377,25 @@ begin
     rdata => rdata
   );
 
-  rclk_int    <= wclk when COMMON_CLK = 0 else rclk;
-  rrst_n_int  <= wrstn when COMMON_CLK = 0 else rrstn;
+  gen_async_reset : if COMMON_CLK = 0 generate
+    i_safe_reset : cdc_safe_reset
+      generic map (
+        SYNC_STAGES => SYNC_FF+1
+      )
+      port map (
+        src_clk_i  => wclk,
+        src_rst_ni => wrstn,
+        src_rst_no => wrstn_int,
+        dst_clk_i  => rclk,
+        dst_rst_ni => rrstn,
+        dst_rst_no => rrstn_int
+      );
+  end generate;
+
+  gen_common_reset : if COMMON_CLK /= 0 generate
+    wrstn_int <= wrstn;
+    rrstn_int <= rrstn;
+  end generate;
 
   i_read_ctrl : entity lib_common.fifo_read_ctrl(rtl)
   generic map (
@@ -393,7 +409,7 @@ begin
   )
   port map (
     rclk    => rclk,
-    rrstn   => rrstn,
+    rrstn   => rrstn_int,
     ren     => ren_int,
     rempty  => rempty,
     rvalid  => rvalid,

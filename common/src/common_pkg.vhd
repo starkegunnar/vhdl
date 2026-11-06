@@ -224,6 +224,20 @@ package common_pkg is
     );
   end component cdc_sync;
 
+  component cdc_safe_reset is
+    generic (
+      SYNC_STAGES : integer range 2 to 15 := 2
+    );
+    port (
+      src_clk_i  : in  std_logic;
+      src_rst_ni : in  std_logic;
+      src_rst_no : out std_logic;
+      dst_clk_i  : in  std_logic;
+      dst_rst_ni : in  std_logic;
+      dst_rst_no : out std_logic
+    );
+  end component cdc_safe_reset;
+
   component reg_slice is
     generic (
       DW          : integer;
