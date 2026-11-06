@@ -16,7 +16,8 @@ entity axis_demux is
     DSTW        : integer := 0;
     USRW        : integer := 0;
     ASYNC_RESET : integer range 0 to 1 := 0;
-    USE_TDEST   : integer range 0 to 1 := 0
+    USE_TDEST   : integer range 0 to 1 := 0;
+    TDEST_OFFS  : natural := 0
   );
   port (
     aclk          : in  std_logic;
@@ -47,7 +48,9 @@ end entity axis_demux;
 
 architecture rtl of axis_demux is
 
-  subtype t_sel is unsigned(maximum(USE_TDEST*DSTW, f_log2nz(N))-1 downto 0);
+  subtype t_sel is unsigned(f_log2nz(N)-1 downto 0);
+
+  subtype t_dst_range is integer range TDEST_OFFS+f_log2nz(N)-1 downto TDEST_OFFS;
 
   constant VW : integer := 2**t_sel'length;
 
@@ -55,25 +58,27 @@ architecture rtl of axis_demux is
     locked  : std_logic;
     sel     : t_sel;
     t       : t_axis_array(0 to 1);
+    sel_reg : t_sel;
     valid   : std_logic;
-    tvalid  : std_logic_vector(maximum(USE_TDEST*2**DSTW, f_ceil_pow2(N))-1 downto 0);
+    tvalid  : std_logic_vector(VW-1 downto 0);
     tready  : std_logic;
   end record;
 
   constant C_RST : t_reg := (
-    locked => '0',
-    sel    => (others => '0'),
-    t      => (others => axis_zero),
-    valid  => '0',
-    tvalid => (others => '0'),
-    tready => '1'
+    locked  => '0',
+    sel     => (others => '0'),
+    t       => (others => axis_zero),
+    sel_reg => (others => '0'),
+    valid   => '0',
+    tvalid  => (others => '0'),
+    tready  => '1'
   );
 
   signal q, d : t_reg;
 
 begin
 
-  assert USE_TDEST = 0 or DSTW >= f_log2nz(N)
+  assert USE_TDEST = 0 or DSTW-TDEST_OFFS >= f_log2nz(N)
     report "axis_demux: DSTW is too small for USE_TDEST"
     severity failure;
 
@@ -93,13 +98,15 @@ begin
 
     if USE_TDEST /= 0 then
       if q.tready = '0' then
-        v_sel := unsigned(q.t(0).dest);
+        v_sel := unsigned(q.t(0).dest(t_dst_range));
       else
-        v_sel := unsigned(s_axis.dest);
+        v_sel := unsigned(s_axis.dest(t_dst_range));
       end if;
     else
       if q.locked = '1' then
         v_sel := q.sel;
+      elsif q.tready = '0' then
+        v_sel := q.sel_reg;
       else
         v_sel := unsigned(sel);
       end if;
@@ -116,7 +123,8 @@ begin
 
     if q.tready = '1' and s_axis_tvalid = '1' then
       -- Capture the selection for the downstream channel
-      v.t(0) := s_axis;
+      v.t(0)    := s_axis;
+      v.sel_reg := unsigned(sel);
     end if;
 
     if q.valid = '0' or (q.tvalid and v_ready) /= (VW-1 downto 0 => '0') then
@@ -132,9 +140,8 @@ begin
       if USE_TDEST = 0 and (s_axis_tvalid = '1' or q.tready = '0') then
         if v_last = '1' then
           v.locked := '0';
-        end if;
-        if q.locked = '0' then  
-          v.sel := unsigned(sel);
+        elsif q.locked = '0' then  
+          v.sel := v_sel;
           v.locked := '1';
         end if;
       end if;
