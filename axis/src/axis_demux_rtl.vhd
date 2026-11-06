@@ -57,7 +57,11 @@ architecture rtl of axis_demux is
   type t_reg is record
     locked  : std_logic;
     sel     : t_sel;
-    t       : t_axis_array(0 to 1);
+    t       : t_axis_array(0 to 1)(data(DW-1 downto 0),
+                                   keep(DW/8-1 downto 0),
+                                   id(maximum(IDW, 1)-1 downto 0),
+                                   dest(maximum(DSTW, 1)-1 downto 0),
+                                   user(maximum(USRW, 1)-1 downto 0));
     sel_reg : t_sel;
     valid   : std_logic;
     tvalid  : std_logic_vector(VW-1 downto 0);
@@ -67,7 +71,7 @@ architecture rtl of axis_demux is
   constant C_RST : t_reg := (
     locked  => '0',
     sel     => (others => '0'),
-    t       => (others => axis_zero),
+    t       => (others => f_axis_reset(DW, IDW, DSTW, USRW)),
     sel_reg => (others => '0'),
     valid   => '0',
     tvalid  => (others => '0'),
@@ -92,7 +96,7 @@ begin
   begin
     v := q;
 
-    v_last := s_axis.last and q.tready or q.t(0).last and not q.tready;
+    v_last := (s_axis.last and q.tready) or (q.t(0).last and not q.tready);
     v_ready := (others => '1');
     v_ready(N-1 downto 0) := m_axis_tready;
 
@@ -140,7 +144,7 @@ begin
       if USE_TDEST = 0 and (s_axis_tvalid = '1' or q.tready = '0') then
         if v_last = '1' then
           v.locked := '0';
-        elsif q.locked = '0' then  
+        elsif q.locked = '0' then
           v.sel := v_sel;
           v.locked := '1';
         end if;
@@ -154,7 +158,7 @@ begin
       end if;
       v.valid   := C_RST.valid;
       v.tvalid  := C_RST.tvalid;
-      v.tready  := C_RST.tready;  
+      v.tready  := C_RST.tready;
     end if;
 
     d <= v;
@@ -178,7 +182,7 @@ begin
       end if;
       q.valid   <= C_RST.valid;
       q.tvalid  <= C_RST.tvalid;
-      q.tready  <= C_RST.tready; 
+      q.tready  <= C_RST.tready;
     end if;
   end process p_seq;
 

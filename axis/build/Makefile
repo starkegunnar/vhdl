@@ -19,6 +19,7 @@ SOURCES_VHDL = \
 	$(COMPONENT_DIR)/src/axis_broadcast_rtl.vhd
 
 SOURCES_TB = \
+	$(COMPONENT_DIR)/test/axis_tb_pkg.vhd \
 	$(COMPONENT_DIR)/test/axis_tb.vhd
 
 TB_TOP = axis_tb
@@ -29,6 +30,9 @@ vcom: outdir
 
 vsim: vcom
 	(cd $(OUT_DIR) && vsim -L $(LIBRARY_NAME) $(LIBRARY_NAME).$(TB_TOP))
+
+vsim-nogui: vcom
+	(cd $(OUT_DIR) && vsim -c -L $(LIBRARY_NAME) $(LIBRARY_NAME).$(TB_TOP))
 
 simulate: elab
 	(cd $(OUT_DIR) && xsim -g sim_snapshot)

@@ -46,14 +46,18 @@ end entity axis_broadcast;
 architecture rtl of axis_broadcast is
 
   type t_reg is record
-    t       : t_axis_array(0 to 1);
+    t       : t_axis_array(0 to 1)(data(DW-1 downto 0),
+                                   keep(DW/8-1 downto 0),
+                                   id(maximum(IDW, 1)-1 downto 0),
+                                   dest(maximum(DSTW, 1)-1 downto 0),
+                                   user(maximum(USRW, 1)-1 downto 0));
     valid   : std_logic;
     tvalid  : std_logic_vector(N-1 downto 0);
     tready  : std_logic;
   end record;
 
   constant C_RST : t_reg := (
-    t       => (others => axis_zero),
+    t       => (others => f_axis_reset(DW, IDW, DSTW, USRW)),
     valid   => '0',
     tvalid  => (others => '0'),
     tready  => '1'
@@ -72,8 +76,8 @@ begin
     v := q;
 
     v_ready := '0';
-    if q.tvalid and m_axis_tready = q.tvalid then
-      v_ready := '1';
+    if (q.tvalid and m_axis_tready) = q.tvalid then
+      v_ready := q.valid;
     end if;
 
     if s_axis_tvalid = '1' and q.tready = '1' and q.valid = '1' and v_ready = '0' then
@@ -113,7 +117,7 @@ begin
     if ASYNC_RESET = 0 and aresetn = '0' then
       v.valid   := C_RST.valid;
       v.tvalid  := C_RST.tvalid;
-      v.tready  := C_RST.tready;  
+      v.tready  := C_RST.tready;
     end if;
 
     d <= v;
@@ -133,7 +137,7 @@ begin
     if ASYNC_RESET = 1 and aresetn = '0' then
       q.valid   <= C_RST.valid;
       q.tvalid  <= C_RST.tvalid;
-      q.tready  <= C_RST.tready; 
+      q.tready  <= C_RST.tready;
     end if;
   end process p_seq;
 

@@ -18,15 +18,6 @@ package axis_pkg is
     user  : std_logic_vector;
   end record;
 
-  constant axis_zero : t_axis := (
-    data  => (others => '0'),
-    keep  => (others => '0'),
-    last  => '0',
-    id    => (others => '0'),
-    dest  => (others => '0'),
-    user  => (others => '0')
-  );
-
   type t_axis_array is array(natural range <>) of t_axis;
 
   type t_axis_vector is record
@@ -39,7 +30,7 @@ package axis_pkg is
   end record;
 
   function f_axis_width(
-    DW    : positive; 
+    DW    : positive;
     IDW   : integer := 0;
     DSTW  : integer := 0;
     USRW  : integer := 0
@@ -65,6 +56,13 @@ package axis_pkg is
     t      : t_axis;
     ext_id : std_logic_vector;
     IDW    : natural
+  ) return t_axis;
+
+  function f_axis_reset(
+    DW    : positive;
+    IDW   : integer := 0;
+    DSTW  : integer := 0;
+    USRW  : integer := 0
   ) return t_axis;
 
   component axis_reg_slice is
@@ -171,7 +169,7 @@ end package axis_pkg;
 package body axis_pkg is
 
   function f_axis_width(
-    DW    : positive; 
+    DW    : positive;
     IDW   : integer := 0;
     DSTW  : integer := 0;
     USRW  : integer := 0
@@ -182,7 +180,7 @@ package body axis_pkg is
 
   function f_axis_serialize(
     t     : t_axis;
-    DW    : positive; 
+    DW    : positive;
     IDW   : integer := 0;
     DSTW  : integer := 0;
     USRW  : integer := 0
@@ -209,16 +207,14 @@ package body axis_pkg is
     DSTW  : integer := 0;
     USRW  : integer := 0
   ) return t_axis is
-    vv  : std_logic_vector(v'length-1 downto 0);
-    t   : t_axis(
-            data(DW-1 downto 0),
-            keep(DW/8-1 downto 0),
-            id(maximum(IDW, 1)-1 downto 0),
-            dest(maximum(DSTW, 1)-1 downto 0),
-            user(maximum(USRW, 1)-1 downto 0)
-          );
+    variable vv  : std_logic_vector(v'length-1 downto 0);
+    variable t   : t_axis(data(DW-1 downto 0),
+                          keep(DW/8-1 downto 0),
+                          id(maximum(IDW, 1)-1 downto 0),
+                          dest(maximum(DSTW, 1)-1 downto 0),
+                          user(maximum(USRW, 1)-1 downto 0));
   begin
-    vv      := v;
+    vv := v;
     (t.last, t.keep, t.data) := vv(DW+DW/8 downto 0);
     t.id    := (others => '0');
     if IDW > 0 then
@@ -260,6 +256,27 @@ package body axis_pkg is
     end if;
 
     return v;
+  end function;
+
+  function f_axis_reset(
+    DW    : positive;
+    IDW   : integer := 0;
+    DSTW  : integer := 0;
+    USRW  : integer := 0
+  ) return t_axis is
+    variable t : t_axis(data(DW-1 downto 0),
+                        keep(DW/8-1 downto 0),
+                        id(maximum(IDW, 1)-1 downto 0),
+                        dest(maximum(DSTW, 1)-1 downto 0),
+                        user(maximum(USRW, 1)-1 downto 0));
+  begin
+    t.data  := (others => '0');
+    t.keep  := (others => '0');
+    t.last  := '0';
+    t.id    := (others => '0');
+    t.dest  := (others => '0');
+    t.user  := (others => '0');
+    return t;
   end function;
 
 end package body axis_pkg;

@@ -8,26 +8,6 @@ use lib_common.random_2008.all;
 
 package axis_pkg is
 
-  procedure pcdr_write(
-    signal i_clk    : in    std_logic;
-    signal o_data   : out   std_logic_vector;
-    signal o_valid  : inout std_logic;
-    signal i_ready  : in    std_logic;
-    i_data          : in    std_logic_vector;
-    i_timeout       : in    time;
-    i_rate          : in    real := 1.0
-  );
-
-  procedure pcdr_read(
-    signal i_clk    : in    std_logic;
-    signal i_data   : in    std_logic_vector;
-    signal i_valid  : in    std_logic;
-    signal o_ready  : inout std_logic;
-    o_data          : out   std_logic_vector;
-    i_timeout       : in    time;
-    i_rate          : in    real := 1.0
-  );
-
 end package axis_pkg;
 
 package body axis_pkg is

@@ -333,6 +333,8 @@ architecture rtl of fifo is
   signal wrstn_int : std_logic;
   signal rrstn_int : std_logic;
 
+  signal ren_int : std_logic;
+
 begin
 
   i_write_ctrl : entity lib_common.fifo_write_ctrl(rtl)
